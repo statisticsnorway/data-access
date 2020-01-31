@@ -42,10 +42,8 @@ module no.ssb.dapla.data.access {
 
     requires org.checkerframework.checker.qual;
     requires io.helidon.tracing;
-    requires google.auth.library.oauth2.http;
-    requires google.auth.library.credentials;
-
-    exports no.ssb.dapla.data.access;
+    requires com.google.auth.oauth2;
+    requires com.google.auth;
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.data.access.ApplicationBuilder;
 }
