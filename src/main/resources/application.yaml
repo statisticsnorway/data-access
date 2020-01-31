@@ -1,16 +1,16 @@
 webserver:
-  port: 10110
+  port: 10130
   host: 0.0.0.0
   access-log:
     format: "%h %u %t %r %s %b %{Referer}i %T"
 
 grpcserver:
   host: 0.0.0.0
-  port: 10118
+  port: 10138
 
 tracing:
   enabled: true
-  service: catalog
+  service: data-access
   sampler-type: const
   sampler-param: 1
   protocol: http
