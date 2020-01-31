@@ -42,9 +42,15 @@ steps:
   - name: test
     image: maven:3-jdk-11
     commands:
+      # Create a service account keyfile to be used by GCS tests
+      - mkdir secret
+      - printf "%s" "$GAC" > secret/gcs_sa_test.json
       - mvn test -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository --batch-mode --global-settings settings.xml
     environment:
       HELIDON_CONFIG_PROFILE: drone
+      DATA_ACCESS_SERVICE_ACCOUNT_KEY_FILE: secret/gcs_sa_test.json
+    GAC:
+      from_secret: gcs_credentials
     depends_on:
       - build
 
@@ -113,12 +119,6 @@ steps:
       flush_age: 14
     depends_on:
       - sonarqube
-
-services:
-  - name: bigtable
-    image: statisticsnorway/bigtable-emulator
-    ports:
-    - 9035
 
 ---
 kind: secret

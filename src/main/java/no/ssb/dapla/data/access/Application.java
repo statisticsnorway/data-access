@@ -52,11 +52,8 @@ public class Application extends DefaultHelidonApplication {
                 });
     }
 
-    Application(Config config) {
+    Application(Config config, Tracer tracer) {
         put(Config.class, config);
-
-        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(true);
-        Tracer tracer = tracerBuilder.build();
 
         DataAccessService dataAccessService = new DataAccessService();
 

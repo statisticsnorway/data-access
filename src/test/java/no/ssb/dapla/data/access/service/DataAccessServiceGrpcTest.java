@@ -1,7 +1,6 @@
 package no.ssb.dapla.data.access.service;
 
 import io.grpc.Channel;
-import no.ssb.dapla.data.access.Application;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
@@ -14,9 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(IntegrationTestExtension.class)
 public class DataAccessServiceGrpcTest {
-
-    @Inject
-    Application application;
 
     @Inject
     Channel channel;
