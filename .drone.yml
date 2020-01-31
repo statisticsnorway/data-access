@@ -35,7 +35,7 @@ steps:
       # Create a service account keyfile to be used by GCS tests
       - mkdir secret
       - printf "%s" "$GAC" > secret/gcs_sa_test.json
-      - mvn compile -U -P ssb-bip -Djdk.tls.client.protocols="TLSv1.2" -Dmaven.repo.local=/drone/src/.m2/repository -DskipTests=true -Dmaven.javadoc.skip=true --batch-mode --global-settings settings.xml
+      - mvn verify -U -P ssb-bip -Djdk.tls.client.protocols="TLSv1.2" -Dmaven.repo.local=/drone/src/.m2/repository -DskipTests=true -Dmaven.javadoc.skip=true --batch-mode --global-settings settings.xml
     environment:
       HELIDON_CONFIG_PROFILE: drone
       DATA_ACCESS_SERVICE_ACCOUNT_KEY_FILE: secret/gcs_sa_test.json
