@@ -52,11 +52,8 @@ public class Application extends DefaultHelidonApplication {
                 });
     }
 
-    Application(Config config) {
+    Application(Config config, Tracer tracer) {
         put(Config.class, config);
-
-        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(true);
-        Tracer tracer = tracerBuilder.build();
 
         DataAccessService dataAccessService = new DataAccessService();
 
@@ -96,7 +93,7 @@ public class Application extends DefaultHelidonApplication {
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(Health.create(config, () -> get(WebServer.class)))
-                .register("access", dataAccessHttpService)
+                .register("/access", dataAccessHttpService)
                 .build();
         put(Routing.class, routing);
 

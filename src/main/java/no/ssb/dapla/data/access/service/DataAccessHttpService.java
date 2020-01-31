@@ -1,19 +1,21 @@
 package no.ssb.dapla.data.access.service;
 
 import io.helidon.common.http.Http;
+import io.helidon.common.http.MediaType;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
 import io.opentracing.Span;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
+import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.helidon.application.Tracing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-import static no.ssb.helidon.application.Tracing.logError;
+import static no.ssb.helidon.application.Tracing.*;
 
 public class DataAccessHttpService implements Service {
 
@@ -46,7 +48,10 @@ public class DataAccessHttpService implements Service {
                         if (token == null) {
                             response.status(Http.Status.NOT_FOUND_404).send();
                         } else {
-                            response.status(Http.Status.OK_200).send(token);
+                            response.headers().contentType(MediaType.APPLICATION_JSON);
+                            response.send(AccessTokenResponse.newBuilder()
+                                    .setAccessToken(token.getAccessToken())
+                                    .setExpirationTime(token.getExpirationTime()).build());
                         }
                         span.finish();
                     }).exceptionally(t -> {

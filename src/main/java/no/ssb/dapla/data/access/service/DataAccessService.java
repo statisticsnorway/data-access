@@ -21,7 +21,7 @@ public class DataAccessService {
     CompletableFuture<AccessToken> getAccessToken(Span span, String userId, AccessTokenRequest.Privilege privilege,
                                              String location) {
         CompletableFuture<AccessToken> future = new CompletableFuture<>();
-        span.log(String.format("User %s is asking for % privilege to location %s", userId, privilege.name(), location));
+        span.log(String.format("User %s is asking for %s privilege to location %s", userId, privilege.name(), location));
         GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true, getScope(privilege));
         AccessToken accessToken =  new AccessToken(credential.getAccessToken(), credential.getExpirationTime());
         future.complete(accessToken);
