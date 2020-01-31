@@ -39,6 +39,15 @@ steps:
       - authenticate
       - restore-cache
 
+  - name: test
+    image: maven:3-jdk-11
+    commands:
+      - mvn test -P ssb-bip -Dmaven.repo.local=/drone/src/.m2/repository --batch-mode --global-settings settings.xml
+    environment:
+      HELIDON_CONFIG_PROFILE: drone
+    depends_on:
+      - build
+
   - name: sonarqube
     image: maven:3-jdk-11
     commands:
