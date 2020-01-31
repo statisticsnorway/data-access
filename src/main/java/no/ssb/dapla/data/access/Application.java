@@ -93,7 +93,7 @@ public class Application extends DefaultHelidonApplication {
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(Health.create(config, () -> get(WebServer.class)))
-                .register("access", dataAccessHttpService)
+                .register("/access", dataAccessHttpService)
                 .build();
         put(Routing.class, routing);
 
