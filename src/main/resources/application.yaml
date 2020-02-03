@@ -1,12 +1,12 @@
 webserver:
-  port: 10130
+  port: 10140
   host: 0.0.0.0
   access-log:
     format: "%h %u %t %r %s %b %{Referer}i %T"
 
 grpcserver:
   host: 0.0.0.0
-  port: 10138
+  port: 10148
 
 tracing:
   enabled: true

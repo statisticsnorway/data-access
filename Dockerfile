@@ -36,8 +36,8 @@ ENV PATH=/jdk/bin:$PATH
 
 WORKDIR /app
 
-EXPOSE 10130
-EXPOSE 10138
+EXPOSE 10140
+EXPOSE 10148
 
 CMD ["java", "--add-exports=io.grpc/io.opencensus.trace=com.google.api.client", \
 "--add-exports=io.grpc/io.opencensus.trace.export=com.google.api.client", \
