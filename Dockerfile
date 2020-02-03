@@ -39,4 +39,10 @@ WORKDIR /app
 EXPOSE 10130
 EXPOSE 10138
 
-CMD ["java", "-p", "/app/lib", "-m", "no.ssb.dapla.data.access/no.ssb.dapla.data.access.Application"]
+CMD ["java", "--add-exports=io.grpc/io.opencensus.trace=com.google.api.client", \
+"--add-exports=io.grpc/io.opencensus.trace.export=com.google.api.client", \
+"--add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client", \
+"--add-exports=io.grpc/io.opencensus.common=com.google.api.client", \
+"--add-exports=io.grpc/io.opencensus.trace=opencensus.contrib.http.util", \
+"--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
+"-p", "/app/lib", "-m", "no.ssb.dapla.data.access/no.ssb.dapla.data.access.Application"]
