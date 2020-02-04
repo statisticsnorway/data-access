@@ -30,14 +30,14 @@ public class DataAccessHttpService implements Service {
 
     @Override
     public void update(Routing.Rules rules) {
-        rules.get("/token/{location}", this::httpGetAccessToken);
+        rules.get("/token", this::httpGetAccessToken);
         rules.get("/location", this::httpGetLocation);
     }
 
     private void httpGetAccessToken(ServerRequest request, ServerResponse response) {
         Span span = Tracing.spanFromHttp(request, "httpGetAccessToken");
         try {
-            String location = request.path().param("location");
+            String location = request.queryParams().first("location").orElseThrow();
             span.setTag("location", location);
             String userId = request.queryParams().first("userId").orElseThrow();
             span.setTag("userId", userId);

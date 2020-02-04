@@ -17,7 +17,7 @@ class DataAccessServiceHttpTest {
 
     @Test
     void thatGetAccessTokenWorks() {
-        testClient.get("/access/token/location?userId=user&privilege=READ", AccessTokenResponse.class).expect200Ok().body();
+        testClient.get("/access/token?userId=user&location=myLocation&privilege=READ", AccessTokenResponse.class).expect200Ok().body();
     }
 
     @Test
