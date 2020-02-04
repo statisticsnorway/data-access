@@ -64,6 +64,34 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
 
     @Override
     public void getLocation(LocationRequest request, StreamObserver<LocationResponse> responseObserver) {
-        super.getLocation(request, responseObserver);
+        Span span = Tracing.spanFromGrpc(request, "getLocation");
+        try {
+            dataAccessService.getLocation(span, request.getValuation(), request.getState())
+                    .orTimeout(10, TimeUnit.SECONDS)
+                    .thenAccept(location -> {
+                        responseObserver.onNext(traceOutputMessage(span, LocationResponse.newBuilder()
+                                .setLocation(location).build()));
+                        responseObserver.onCompleted();
+                        span.finish();
+                    })
+                    .exceptionally(throwable -> {
+                        try {
+                            logError(span, throwable, "error in getLocation()");
+                            LOG.error(String.format("getLocation()"), throwable);
+                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                            return null;
+                        } finally {
+                            span.finish();
+                        }
+                    });
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e, "top-level error");
+                LOG.error("top-level error", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 }

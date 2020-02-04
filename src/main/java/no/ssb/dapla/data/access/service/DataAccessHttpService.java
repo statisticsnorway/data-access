@@ -9,6 +9,8 @@ import io.helidon.webserver.Service;
 import io.opentracing.Span;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
+import no.ssb.dapla.data.access.protobuf.LocationRequest;
+import no.ssb.dapla.data.access.protobuf.LocationResponse;
 import no.ssb.helidon.application.Tracing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +30,12 @@ public class DataAccessHttpService implements Service {
 
     @Override
     public void update(Routing.Rules rules) {
-        rules.get("/{location}", this::httpGetAccessToken);
+        rules.get("/token/{location}", this::httpGetAccessToken);
+        rules.get("/location", this::httpGetLocation);
     }
 
     private void httpGetAccessToken(ServerRequest request, ServerResponse response) {
-        Span span = Tracing.spanFromHttp(request, "doGet");
+        Span span = Tracing.spanFromHttp(request, "httpGetAccessToken");
         try {
             String location = request.path().param("location");
             span.setTag("location", location);
@@ -59,6 +62,49 @@ public class DataAccessHttpService implements Service {
                     logError(span, t);
                     LOG.error(String.format("httpGetAccessToken() failed for user %s and location %s",
                             userId, location), t);
+                    response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
+                    return null;
+                } finally {
+                    span.finish();
+                }
+            });
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e);
+                LOG.error("top-level error", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
+    }
+
+    private void httpGetLocation(ServerRequest request, ServerResponse response) {
+        Span span = Tracing.spanFromHttp(request, "httpGetLocation");
+        try {
+            LocationRequest.Valuation valuation = LocationRequest.Valuation.valueOf(request.queryParams()
+                    .first("valuation").orElseThrow());
+            span.setTag("valuation", valuation.name());
+            LocationRequest.DatasetState datasetState = LocationRequest.DatasetState.valueOf(request.queryParams()
+                    .first("state").orElseThrow());
+            span.setTag("state", datasetState.name());
+
+            dataAccessService.getLocation(span, valuation, datasetState)
+                    .orTimeout(10, TimeUnit.SECONDS)
+                    .thenAccept(location -> {
+                        if (location == null) {
+                            response.status(Http.Status.NOT_FOUND_404).send();
+                        } else {
+                            response.headers().contentType(MediaType.APPLICATION_JSON);
+                            response.send(LocationResponse.newBuilder()
+                                    .setLocation(location).build());
+                        }
+                        span.finish();
+                    }).exceptionally(t -> {
+                try {
+                    logError(span, t);
+                    LOG.error(String.format("httpGetLocation() failed for valuation %s and state %s",
+                            valuation, datasetState), t);
                     response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(t.getMessage());
                     return null;
                 } finally {
