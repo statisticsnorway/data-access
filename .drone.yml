@@ -39,6 +39,7 @@ steps:
     environment:
       HELIDON_CONFIG_PROFILE: drone
       DATA_ACCESS_SERVICE_ACCOUNT_KEY_FILE: secret/gcs_sa_test.json
+      DATA_ACCESS_SERVICE_DEFAULT_LOCATION: gs://dev-datalager-store
       GAC:
         from_secret: gcs_credentials
     depends_on:
