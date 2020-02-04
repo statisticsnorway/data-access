@@ -87,7 +87,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration>
-
+                        <environmentVariables>
+                            <DATA_ACCESS_SERVICE_DEFAULT_LOCATION>gs://dev-datalager-store</DATA_ACCESS_SERVICE_DEFAULT_LOCATION>
+                        </environmentVariables>
                     </configuration>
                 </plugin>
             </plugins>
