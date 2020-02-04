@@ -15,7 +15,7 @@ ENV JAVA_HOME=/jdk
 # Build stripped JVM
 #
 RUN ["jlink", "--strip-debug", "--no-header-files", "--no-man-pages", "--compress=2", "--module-path", "/jdk/jmods", "--output", "/linked",\
- "--add-modules", "java.base,java.management,jdk.unsupported,java.sql,jdk.zipfs,jdk.naming.dns,java.desktop,java.net.http"]
+ "--add-modules", "java.base,java.management,jdk.unsupported,java.sql,jdk.zipfs,jdk.naming.dns,java.desktop,java.net.http,jdk.crypto.cryptoki"]
 
 #
 # Build Application image
@@ -44,5 +44,6 @@ CMD ["java", "--add-exports=io.grpc/io.opencensus.trace=com.google.api.client", 
 "--add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client", \
 "--add-exports=io.grpc/io.opencensus.common=com.google.api.client", \
 "--add-exports=io.grpc/io.opencensus.trace=opencensus.contrib.http.util", \
+"--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
 "--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
 "-p", "/app/lib", "-m", "no.ssb.dapla.data.access/no.ssb.dapla.data.access.Application"]
