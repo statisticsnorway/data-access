@@ -39,10 +39,6 @@
         <dependency>
             <groupId>no.ssb.dapla.data</groupId>
             <artifactId>data-access-protobuf</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>no.ssb.dapla.data</groupId>
-            <artifactId>data-access-protobuf</artifactId>
             <version>0.1-SNAPSHOT</version>
         </dependency>
         <dependency>
