@@ -1,8 +1,6 @@
 package no.ssb.dapla.data.access;
 
-import io.helidon.tracing.TracerBuilder;
-import io.opentracing.Tracer;
-import no.ssb.dapla.data.access.health.Health;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
 import io.helidon.grpc.server.GrpcRouting;
@@ -16,16 +14,20 @@ import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
+import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
+import no.ssb.dapla.data.access.health.Health;
 import no.ssb.dapla.data.access.service.DataAccessGrpcService;
 import no.ssb.dapla.data.access.service.DataAccessHttpService;
 import no.ssb.dapla.data.access.service.DataAccessService;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.DefaultHelidonApplication;
+import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class Application extends DefaultHelidonApplication {
@@ -94,7 +96,16 @@ public class Application extends DefaultHelidonApplication {
                 .register(MetricsSupport.create())
                 .register(Health.create(config, () -> get(WebServer.class)))
                 .register("/access", dataAccessHttpService)
-                .build();
+                .register("/rpc", new HelidonGrpcWebTranscoding(
+                        () -> ManagedChannelBuilder
+                                .forAddress("localhost", Optional.of(grpcServer)
+                                        .filter(GrpcServer::isRunning)
+                                        .map(GrpcServer::port)
+                                        .orElseThrow())
+                                .usePlaintext()
+                                .build(),
+                        dataAccessGrpcService
+                )).build();
         put(Routing.class, routing);
 
         WebServer webServer = WebServer.create(
