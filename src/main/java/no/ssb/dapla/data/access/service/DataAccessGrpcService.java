@@ -9,11 +9,12 @@ import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
 import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
+import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
-
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.TimeUnit;
 
 import static no.ssb.helidon.application.Tracing.logError;
 import static no.ssb.helidon.application.Tracing.traceOutputMessage;
@@ -29,12 +30,14 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
 
     @Override
     public void getAccessToken(AccessTokenRequest request, StreamObserver<AccessTokenResponse> responseObserver) {
-        Span span = Tracing.spanFromGrpc(request, "getAccessToken");
+        TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getAccessToken");
+        Span span = tracerAndSpan.span();
         try {
             String userId = request.getUserId();
             dataAccessService.getAccessToken(span, userId, request.getPrivilege(), request.getLocation())
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(token -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         responseObserver.onNext(traceOutputMessage(span, AccessTokenResponse.newBuilder()
                                 .setAccessToken(token.getAccessToken()).setExpirationTime(token.getExpirationTime())
                                 .build()));
@@ -43,6 +46,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in getAccessToken()");
                             LOG.error(String.format("getAccessToken()"), throwable);
                             responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
@@ -64,11 +68,13 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
 
     @Override
     public void getLocation(LocationRequest request, StreamObserver<LocationResponse> responseObserver) {
-        Span span = Tracing.spanFromGrpc(request, "getLocation");
+        TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
+        Span span = tracerAndSpan.span();
         try {
             dataAccessService.getLocation(span, request.getValuation(), request.getState())
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(location -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         responseObserver.onNext(traceOutputMessage(span, LocationResponse.newBuilder()
                                 .setLocation(location).build()));
                         responseObserver.onCompleted();
@@ -76,6 +82,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                     })
                     .exceptionally(throwable -> {
                         try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
                             logError(span, throwable, "error in getLocation()");
                             LOG.error(String.format("getLocation()"), throwable);
                             responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));

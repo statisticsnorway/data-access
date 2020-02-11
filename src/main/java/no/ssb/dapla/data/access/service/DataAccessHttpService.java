@@ -11,13 +11,14 @@ import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
+import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-import static no.ssb.helidon.application.Tracing.*;
+import static no.ssb.helidon.application.Tracing.logError;
 
 public class DataAccessHttpService implements Service {
 
@@ -35,7 +36,8 @@ public class DataAccessHttpService implements Service {
     }
 
     private void httpGetAccessToken(ServerRequest request, ServerResponse response) {
-        Span span = Tracing.spanFromHttp(request, "httpGetAccessToken");
+        TracerAndSpan tracerAndSpan = Tracing.spanFromHttp(request, "httpGetAccessToken");
+        Span span = tracerAndSpan.span();
         try {
             String location = request.queryParams().first("location").orElseThrow();
             span.setTag("location", location);
@@ -48,6 +50,7 @@ public class DataAccessHttpService implements Service {
             dataAccessService.getAccessToken(span, userId, privilege, location)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(token -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (token == null) {
                             response.status(Http.Status.NOT_FOUND_404).send();
                         } else {
@@ -59,6 +62,7 @@ public class DataAccessHttpService implements Service {
                         span.finish();
                     }).exceptionally(t -> {
                 try {
+                    Tracing.restoreTracingContext(tracerAndSpan);
                     logError(span, t);
                     LOG.error(String.format("httpGetAccessToken() failed for user %s and location %s",
                             userId, location), t);
@@ -80,7 +84,8 @@ public class DataAccessHttpService implements Service {
     }
 
     private void httpGetLocation(ServerRequest request, ServerResponse response) {
-        Span span = Tracing.spanFromHttp(request, "httpGetLocation");
+        TracerAndSpan tracerAndSpan = Tracing.spanFromHttp(request, "httpGetLocation");
+        Span span = tracerAndSpan.span();
         try {
             LocationRequest.Valuation valuation = LocationRequest.Valuation.valueOf(request.queryParams()
                     .first("valuation").orElseThrow());
@@ -92,6 +97,7 @@ public class DataAccessHttpService implements Service {
             dataAccessService.getLocation(span, valuation, datasetState)
                     .orTimeout(10, TimeUnit.SECONDS)
                     .thenAccept(location -> {
+                        Tracing.restoreTracingContext(tracerAndSpan);
                         if (location == null) {
                             response.status(Http.Status.NOT_FOUND_404).send();
                         } else {
@@ -102,6 +108,7 @@ public class DataAccessHttpService implements Service {
                         span.finish();
                     }).exceptionally(t -> {
                 try {
+                    Tracing.restoreTracingContext(tracerAndSpan);
                     logError(span, t);
                     LOG.error(String.format("httpGetLocation() failed for valuation %s and state %s",
                             valuation, datasetState), t);

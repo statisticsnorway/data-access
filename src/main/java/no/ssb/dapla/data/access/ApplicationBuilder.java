@@ -12,7 +12,7 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
     @Override
     public Application build() {
         Config config = ofNullable(this.config).orElseGet(() -> createDefaultConfig());
-        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(true);
+        TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(false);
         Tracer tracer = tracerBuilder.build();
         return new Application(config, tracer);
     }
