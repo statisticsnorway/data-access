@@ -1,5 +1,7 @@
 module no.ssb.dapla.data.access {
     requires no.ssb.dapla.data.access.protobuf;
+    requires no.ssb.dapla.auth.dataset.protobuf;
+    requires no.ssb.dapla.catalog.protobuf;
     requires no.ssb.helidon.media.protobuf.json.server;
     requires org.slf4j;
     requires jul.to.slf4j;

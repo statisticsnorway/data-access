@@ -1,5 +1,8 @@
 grpcserver:
   port: 0
 
+data-access:
+  provider: no.ssb.dapla.data.access.service.LocalstackDataAccessService
+
 tracing:
   enabled: false
