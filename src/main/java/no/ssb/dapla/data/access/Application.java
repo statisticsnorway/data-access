@@ -16,10 +16,13 @@ import io.helidon.webserver.WebTracingConfig;
 import io.helidon.webserver.accesslog.AccessLogSupport;
 import io.opentracing.Tracer;
 import io.opentracing.contrib.grpc.OperationNameConstructor;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
+import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc.CatalogServiceFutureStub;
 import no.ssb.dapla.data.access.health.Health;
 import no.ssb.dapla.data.access.service.DataAccessGrpcService;
-import no.ssb.dapla.data.access.service.DataAccessHttpService;
 import no.ssb.dapla.data.access.service.DataAccessService;
+import no.ssb.dapla.data.access.service.GoogleDataAccessService;
+import no.ssb.dapla.data.access.service.LocalstackDataAccessService;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
@@ -54,12 +57,17 @@ public class Application extends DefaultHelidonApplication {
                 });
     }
 
-    Application(Config config, Tracer tracer) {
+    Application(Config config, Tracer tracer, AuthServiceFutureStub authServiceGrpc, CatalogServiceFutureStub catalogServiceGrpc) {
         put(Config.class, config);
 
-        DataAccessService dataAccessService = new DataAccessService();
+        DataAccessService dataAccessService;
+        if (config.get("data-access.provider").asString().equals(GoogleDataAccessService.class.getName())) {
+            dataAccessService = new GoogleDataAccessService();
+        } else {
+            dataAccessService = new LocalstackDataAccessService();
+        }
 
-        DataAccessGrpcService dataAccessGrpcService = new DataAccessGrpcService(dataAccessService);
+        DataAccessGrpcService dataAccessGrpcService = new DataAccessGrpcService(dataAccessService, authServiceGrpc, catalogServiceGrpc);
         put(DataAccessGrpcService.class, dataAccessGrpcService);
 
         GrpcServer grpcServer = GrpcServer.create(
@@ -86,8 +94,6 @@ public class Application extends DefaultHelidonApplication {
         );
         put(GrpcServer.class, grpcServer);
 
-        DataAccessHttpService dataAccessHttpService = new DataAccessHttpService(dataAccessService);
-        put(DataAccessHttpService.class, dataAccessHttpService);
 
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
@@ -95,7 +101,6 @@ public class Application extends DefaultHelidonApplication {
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(Health.create(config, () -> get(WebServer.class)))
-                .register("/access", dataAccessHttpService)
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
                                 .forAddress("localhost", Optional.of(grpcServer)
