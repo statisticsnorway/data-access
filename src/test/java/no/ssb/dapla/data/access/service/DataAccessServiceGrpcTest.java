@@ -13,6 +13,8 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
+import no.ssb.dapla.data.access.protobuf.LocationRequest;
+import no.ssb.dapla.data.access.protobuf.LocationResponse;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
@@ -47,6 +49,19 @@ public class DataAccessServiceGrpcTest {
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
+    @Test
+    public void thatGetLocationWorks() {
+        DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
+        LocationResponse response = client.getLocation(LocationRequest.newBuilder()
+                .setPath("/path/to/dataset")
+                .setSnapshot(2)
+                .setUserId("user")
+                .build());
+        assertNotNull(response);
+        assertThat(response.getParentUri()).isEqualTo("gs://root");
+        assertThat(response.getVersion()).isEqualTo(1);
+    }
+
     private static final Map<String, Dataset> CATALOG = new HashMap<>();
 
     static {
@@ -60,7 +75,7 @@ public class DataAccessServiceGrpcTest {
                         .setId(
                                 DatasetId.newBuilder()
                                         .setPath("/path/to/dataset")
-                                        .setTimestamp(0)
+                                        .setTimestamp(1)
                         )
                         .build()
         );

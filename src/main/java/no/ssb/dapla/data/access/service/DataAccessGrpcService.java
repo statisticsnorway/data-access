@@ -19,6 +19,8 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
+import no.ssb.dapla.data.access.protobuf.LocationRequest;
+import no.ssb.dapla.data.access.protobuf.LocationResponse;
 import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -54,6 +56,85 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             case UNRECOGNIZED:
             default:
                 throw new IllegalArgumentException();
+        }
+    }
+
+    @Override
+    public void getLocation(LocationRequest request, StreamObserver<LocationResponse> responseObserver) {
+        TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
+        Span span = tracerAndSpan.span();
+        try {
+            String userId = request.getUserId();
+            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub.get(GetDatasetRequest.newBuilder()
+                    .setPath(request.getPath())
+                    .setTimestamp(request.getSnapshot())
+                    .build());
+            Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
+
+                @Override
+                public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
+                    Dataset dataset = getDatasetResponse.getDataset();
+                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub.hasAccess(AccessCheckRequest.newBuilder()
+                            .setUserId(userId)
+                            .setValuation(dataset.getValuation().name())
+                            .setState(dataset.getState().name())
+                            .setNamespace(dataset.getId().getPath())
+                            .build());
+
+                    Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
+                        @Override
+                        public void onSuccess(@Nullable AccessCheckResponse accessCheckResponse) {
+                            if (!accessCheckResponse.getAllowed()) {
+                                try {
+                                    Tracing.restoreTracingContext(tracerAndSpan);
+                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
+                                } finally {
+                                    span.finish();
+                                }
+                            }
+                            responseObserver.onNext(LocationResponse.newBuilder()
+                                    .setParentUri(dataset.getParentUri())
+                                    .setVersion(getDatasetResponse.getDataset().getId().getTimestamp())
+                                    .build());
+                            responseObserver.onCompleted();
+                            span.finish();
+                        }
+
+                        @Override
+                        public void onFailure(Throwable throwable) {
+                            try {
+                                Tracing.restoreTracingContext(tracerAndSpan);
+                                logError(span, throwable, "error while preforming authServiceFutureStub.hasAccess");
+                                LOG.error("getAccessToken: error while preforming authServiceFutureStub.hasAccess", throwable);
+                                responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                            } finally {
+                                span.finish();
+                            }
+                        }
+                    }, MoreExecutors.directExecutor());
+                }
+
+                @Override
+                public void onFailure(Throwable throwable) {
+                    try {
+                        Tracing.restoreTracingContext(tracerAndSpan);
+                        logError(span, throwable, "error while preforming catalog get");
+                        LOG.error("getAccessToken: error while preforming catalog get", throwable);
+                        responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                    } finally {
+                        span.finish();
+                    }
+                }
+            }, MoreExecutors.directExecutor());
+
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e, "top-level error");
+                LOG.error("top-level error", e);
+                throw e;
+            } finally {
+                span.finish();
+            }
         }
     }
 
