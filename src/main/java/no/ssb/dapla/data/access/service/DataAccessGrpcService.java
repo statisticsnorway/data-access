@@ -94,7 +94,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             }
                             responseObserver.onNext(LocationResponse.newBuilder()
                                     .setParentUri(dataset.getParentUri())
-                                    .setVersion(getDatasetResponse.getDataset().getId().getTimestamp())
+                                    .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()))
                                     .build());
                             responseObserver.onCompleted();
                             span.finish();
