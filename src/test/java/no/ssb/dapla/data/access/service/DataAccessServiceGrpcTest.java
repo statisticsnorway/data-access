@@ -59,7 +59,7 @@ public class DataAccessServiceGrpcTest {
                 .build());
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://root");
-        assertThat(response.getVersion()).isEqualTo(1);
+        assertThat(response.getVersion()).isEqualTo("1");
     }
 
     private static final Map<String, Dataset> CATALOG = new HashMap<>();
