@@ -64,7 +64,6 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
         Span span = tracerAndSpan.span();
         try {
-            String userId = request.getUserId();
             ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub.get(GetDatasetRequest.newBuilder()
                     .setPath(request.getPath())
                     .setTimestamp(request.getSnapshot())
@@ -74,44 +73,20 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 @Override
                 public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
                     Dataset dataset = getDatasetResponse.getDataset();
-                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub.hasAccess(AccessCheckRequest.newBuilder()
-                            .setUserId(userId)
-                            .setValuation(dataset.getValuation().name())
-                            .setState(dataset.getState().name())
-                            .setNamespace(dataset.getId().getPath())
-                            .build());
+                    if (dataset.hasId()) {
+                        responseObserver.onNext(LocationResponse.newBuilder()
+                                .setParentUri(dataset.getParentUri())
+                                .setVersion(Long.toString(getDatasetResponse.getDataset().getId().getTimestamp()))
+                                .build());
+                    } else {
+                        responseObserver.onNext(LocationResponse.newBuilder()
+                                .setParentUri(dataset.getParentUri())
+                                .setVersion(null)
+                                .build());
 
-                    Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
-                        @Override
-                        public void onSuccess(@Nullable AccessCheckResponse accessCheckResponse) {
-                            if (!accessCheckResponse.getAllowed()) {
-                                try {
-                                    Tracing.restoreTracingContext(tracerAndSpan);
-                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
-                                } finally {
-                                    span.finish();
-                                }
-                            }
-                            responseObserver.onNext(LocationResponse.newBuilder()
-                                    .setParentUri(dataset.getParentUri())
-                                    .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()))
-                                    .build());
-                            responseObserver.onCompleted();
-                            span.finish();
-                        }
-
-                        @Override
-                        public void onFailure(Throwable throwable) {
-                            try {
-                                Tracing.restoreTracingContext(tracerAndSpan);
-                                logError(span, throwable, "error while preforming authServiceFutureStub.hasAccess");
-                                LOG.error("getAccessToken: error while preforming authServiceFutureStub.hasAccess", throwable);
-                                responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                            } finally {
-                                span.finish();
-                            }
-                        }
-                    }, MoreExecutors.directExecutor());
+                    }
+                    responseObserver.onCompleted();
+                    span.finish();
                 }
 
                 @Override
