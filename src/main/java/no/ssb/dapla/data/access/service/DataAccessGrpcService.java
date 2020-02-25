@@ -76,14 +76,12 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                     if (dataset.hasId()) {
                         responseObserver.onNext(LocationResponse.newBuilder()
                                 .setParentUri(dataset.getParentUri())
-                                .setVersion(getDatasetResponse.getDataset().getId().getTimestamp())
+                                .setVersion(Long.toString(getDatasetResponse.getDataset().getId().getTimestamp()))
                                 .build());
                     } else {
-                        // TODO: route bucket use current time as version and version should be String so we can send null
-                        // to say it does now exist
                         responseObserver.onNext(LocationResponse.newBuilder()
                                 .setParentUri(dataset.getParentUri())
-                                .setVersion(0)
+                                .setVersion(null)
                                 .build());
 
                     }
