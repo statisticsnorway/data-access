@@ -34,6 +34,7 @@ import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
 public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServiceImplBase {
 
+    private static final String DEFAULT_LOCATION = "DATA_ACCESS_SERVICE_DEFAULT_LOCATION";
     private final DataAccessService dataAccessService;
     private final AuthServiceFutureStub authServiceFutureStub;
     private final CatalogServiceFutureStub catalogServiceFutureStub;
@@ -80,8 +81,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                 .build());
                     } else {
                         responseObserver.onNext(LocationResponse.newBuilder()
-                                .setParentUri(dataset.getParentUri())
-                                .setVersion(null)
+                                //TODO: Implement routing based on valuation and state
+                                .setParentUri(System.getenv().get(DEFAULT_LOCATION))
                                 .build());
 
                     }
