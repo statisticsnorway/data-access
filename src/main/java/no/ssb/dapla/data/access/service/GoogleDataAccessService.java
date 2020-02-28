@@ -30,7 +30,9 @@ public class GoogleDataAccessService implements DataAccessService {
     private String getScope(AccessTokenRequest.Privilege privilege) {
         switch (privilege) {
             case READ:
-                return READ_SCOPE;
+                return WRITE_SCOPE;
+                // Fix after creating new gcs connector
+                //return READ_SCOPE;
             case WRITE:
                 return WRITE_SCOPE;
             default:
