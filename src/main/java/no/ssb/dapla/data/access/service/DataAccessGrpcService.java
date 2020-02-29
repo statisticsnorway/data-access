@@ -21,6 +21,8 @@ import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
 import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
+import no.ssb.helidon.application.AuthorizationInterceptor;
+import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -65,7 +67,9 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
         Span span = tracerAndSpan.span();
         try {
-            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub.get(GetDatasetRequest.newBuilder()
+            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
+                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
+                    .get(GetDatasetRequest.newBuilder()
                     .setPath(request.getPath())
                     .setTimestamp(request.getSnapshot())
                     .build());
@@ -120,7 +124,9 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         Span span = tracerAndSpan.span();
         try {
             String userId = request.getUserId();
-            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub.get(GetDatasetRequest.newBuilder()
+            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
+                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
+                    .get(GetDatasetRequest.newBuilder()
                     .setPath(request.getPath())
                     .build());
             Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
@@ -128,7 +134,9 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 @Override
                 public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
                     Dataset dataset = getDatasetResponse.getDataset();
-                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub.hasAccess(AccessCheckRequest.newBuilder()
+                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
+                            .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
+                            .hasAccess(AccessCheckRequest.newBuilder()
                             .setUserId(userId)
                             .setValuation(dataset.getValuation().name())
                             .setState(dataset.getState().name())
