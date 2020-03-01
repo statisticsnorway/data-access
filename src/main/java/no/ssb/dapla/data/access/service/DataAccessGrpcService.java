@@ -25,6 +25,7 @@ import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import no.ssb.helidon.application.TracerAndSpan;
 import no.ssb.helidon.application.Tracing;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,15 +135,16 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 @Override
                 public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
                     Dataset dataset = getDatasetResponse.getDataset();
-                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
-                            .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
-                            .hasAccess(AccessCheckRequest.newBuilder()
+                    final AccessCheckRequest accessCheckRequest = AccessCheckRequest.newBuilder()
                             .setUserId(userId)
                             .setValuation(dataset.getValuation().name())
                             .setState(dataset.getState().name())
                             .setNamespace(dataset.getId().getPath())
                             .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
-                            .build());
+                            .build();
+                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
+                            .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
+                            .hasAccess(accessCheckRequest);
 
                     Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
                         @Override
@@ -185,8 +187,9 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                         public void onFailure(Throwable throwable) {
                             try {
                                 Tracing.restoreTracingContext(tracerAndSpan);
-                                logError(span, throwable, "error while preforming authServiceFutureStub.hasAccess");
-                                LOG.error("getAccessToken: error while preforming authServiceFutureStub.hasAccess", throwable);
+                                logError(span, throwable, "error while performing authServiceFutureStub.hasAccess");
+                                LOG.error("getAccessToken: error while performing authServiceFutureStub.hasAccess", throwable);
+                                LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
                                 responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
                             } finally {
                                 span.finish();
@@ -200,8 +203,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 public void onFailure(Throwable throwable) {
                     try {
                         Tracing.restoreTracingContext(tracerAndSpan);
-                        logError(span, throwable, "error while preforming catalog get");
-                        LOG.error("getAccessToken: error while preforming catalog get", throwable);
+                        logError(span, throwable, "error while performing catalog get");
+                        LOG.error("getAccessToken: error while performing catalog get", throwable);
                         responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
                     } finally {
                         span.finish();
