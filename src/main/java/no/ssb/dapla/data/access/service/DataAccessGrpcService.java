@@ -125,8 +125,9 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         Span span = tracerAndSpan.span();
         try {
             String userId = request.getUserId();
+            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token());
             ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
-                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
+                    .withCallCredentials(credentials)
                     .get(GetDatasetRequest.newBuilder()
                     .setPath(request.getPath())
                     .build());
@@ -143,7 +144,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
                             .build();
                     ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
-                            .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
+                            .withCallCredentials(credentials)
                             .hasAccess(accessCheckRequest);
 
                     Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
