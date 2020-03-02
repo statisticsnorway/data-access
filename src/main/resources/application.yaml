@@ -12,11 +12,11 @@ grpcserver:
   port: 10148
 
 catalog-service:
-  host: dapla-catalog-service
+  host: localhost
   port: 10118
 
 auth-service:
-  host: dapla-auth-dataset-service
+  host: localhost
   port: 10108
 
 tracing:
