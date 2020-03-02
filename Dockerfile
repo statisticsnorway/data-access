@@ -35,4 +35,4 @@ CMD ["java", "--add-exports=io.grpc/io.opencensus.trace=com.google.api.client", 
 "--add-exports=io.grpc/io.opencensus.trace=opencensus.contrib.http.util", \
 "--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
 "--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
-"-p", "/app/lib", "-m", "no.ssb.dapla.data.access/no.ssb.dapla.data.access.Application"]
+"-p", "/app/lib", "-m", "no.ssb.dapla.data.access/no.ssb.dapla.data.access.DataAccessApplication"]

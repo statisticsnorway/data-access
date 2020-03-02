@@ -33,18 +33,18 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-public class Application extends DefaultHelidonApplication {
+public class DataAccessApplication extends DefaultHelidonApplication {
 
     private static final Logger LOG;
 
     static {
         installSlf4jJulBridge();
-        LOG = LoggerFactory.getLogger(Application.class);
+        LOG = LoggerFactory.getLogger(DataAccessApplication.class);
     }
 
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis();
-        new ApplicationBuilder().build()
+        new DataAccessApplicationBuilder().build()
                 .start()
                 .toCompletableFuture()
                 .orTimeout(10, TimeUnit.SECONDS)
@@ -57,7 +57,7 @@ public class Application extends DefaultHelidonApplication {
                 });
     }
 
-    Application(Config config, Tracer tracer, AuthServiceFutureStub authServiceGrpc, CatalogServiceFutureStub catalogServiceGrpc) {
+    DataAccessApplication(Config config, Tracer tracer, AuthServiceFutureStub authServiceGrpc, CatalogServiceFutureStub catalogServiceGrpc) {
         put(Config.class, config);
 
         DataAccessService dataAccessService;

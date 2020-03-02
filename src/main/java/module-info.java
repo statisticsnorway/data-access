@@ -1,3 +1,5 @@
+import no.ssb.dapla.data.access.DataAccessApplicationBuilder;
+
 module no.ssb.dapla.data.access {
     requires no.ssb.dapla.data.access.protobuf;
     requires no.ssb.dapla.auth.dataset.protobuf;
@@ -47,5 +49,5 @@ module no.ssb.dapla.data.access {
     requires com.google.auth.oauth2;
     requires com.google.auth;
 
-    provides no.ssb.helidon.application.HelidonApplicationBuilder with no.ssb.dapla.data.access.ApplicationBuilder;
+    provides no.ssb.helidon.application.HelidonApplicationBuilder with DataAccessApplicationBuilder;
 }

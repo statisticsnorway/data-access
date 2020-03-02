@@ -16,7 +16,7 @@ import no.ssb.helidon.application.HelidonApplicationBuilder;
 
 import static java.util.Optional.ofNullable;
 
-public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
+public class DataAccessApplicationBuilder extends DefaultHelidonApplicationBuilder {
 
     ManagedChannel catalogChannel;
     ManagedChannel datasetAccessChannel;
@@ -79,6 +79,6 @@ public class ApplicationBuilder extends DefaultHelidonApplicationBuilder {
         CatalogServiceGrpc.CatalogServiceFutureStub catalogService = CatalogServiceGrpc.newFutureStub(tracingInterceptor.intercept(catalogChannel));
         AuthServiceGrpc.AuthServiceFutureStub authService = AuthServiceGrpc.newFutureStub(tracingInterceptor.intercept(datasetAccessChannel));
 
-        return new Application(config, tracer, authService, catalogService);
+        return new DataAccessApplication(config, tracer, authService, catalogService);
     }
 }

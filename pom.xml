@@ -15,7 +15,7 @@
     <version>0.1-SNAPSHOT</version>
 
     <properties>
-        <exec.mainClass>no.ssb.dapla.data.access.Application</exec.mainClass>
+        <exec.mainClass>no.ssb.dapla.data.access.DataAccessApplication</exec.mainClass>
     </properties>
 
     <repositories>
