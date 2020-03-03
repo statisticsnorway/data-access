@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
@@ -21,6 +22,7 @@ import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
 import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
+import no.ssb.dapla.data.access.protobuf.Privilege;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import no.ssb.helidon.application.TracerAndSpan;
@@ -51,7 +53,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         this.catalogServiceFutureStub = catalogServiceFutureStub;
     }
 
-    private Role.Privilege toDataAccessPrivilege(no.ssb.dapla.data.access.protobuf.AccessTokenRequest.Privilege privilege) {
+    private Role.Privilege toDataAccessPrivilege(no.ssb.dapla.data.access.protobuf.Privilege privilege) {
         switch (privilege) {
             case READ:
                 return Role.Privilege.READ;
@@ -71,13 +73,24 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
                     .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
                     .get(GetDatasetRequest.newBuilder()
-                    .setPath(request.getPath())
-                    .setTimestamp(request.getSnapshot())
-                    .build());
+                            .setPath(request.getPath())
+                            .setTimestamp(request.getSnapshot())
+                            .build());
             Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
 
                 @Override
                 public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
+                    //TODO: Implement routing based on valuation and state
+
+                    if (!getDatasetResponse.hasDataset()) {
+                        responseObserver.onNext(LocationResponse.newBuilder()
+                                .setParentUri(System.getenv().get(DEFAULT_LOCATION))
+                                .build());
+                        responseObserver.onCompleted();
+                        span.finish();
+                        return;
+                    }
+
                     Dataset dataset = getDatasetResponse.getDataset();
                     if (dataset.hasId()) {
                         responseObserver.onNext(LocationResponse.newBuilder()
@@ -129,20 +142,43 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
                     .withCallCredentials(credentials)
                     .get(GetDatasetRequest.newBuilder()
-                    .setPath(request.getPath())
-                    .build());
+                            .setPath(request.getPath())
+                            .setTimestamp(request.getSnapshot())
+                            .build());
             Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
 
                 @Override
                 public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
-                    Dataset dataset = getDatasetResponse.getDataset();
-                    final AccessCheckRequest accessCheckRequest = AccessCheckRequest.newBuilder()
-                            .setUserId(userId)
-                            .setValuation(dataset.getValuation().name())
-                            .setState(dataset.getState().name())
-                            .setNamespace(dataset.getId().getPath())
-                            .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
-                            .build();
+                    AccessCheckRequest accessCheckRequest;
+                    if (Privilege.READ.equals(request.getPrivilege())) {
+                        if (!getDatasetResponse.hasDataset()) {
+                            // no record of dataset in catalog
+                            responseObserver.onError(new StatusException(Status.NOT_FOUND));
+                            return;
+                        }
+                        Dataset dataset = getDatasetResponse.getDataset();
+                        accessCheckRequest = AccessCheckRequest.newBuilder()
+                                .setUserId(userId)
+                                .setValuation(dataset.getValuation().name())
+                                .setState(dataset.getState().name())
+                                .setNamespace(request.getPath())
+                                .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
+                                .build();
+                    } else { // WRITE
+                        if (!request.hasWriteOptions()) {
+                            Metadata trailers = new Metadata();
+                            trailers.put(Metadata.Key.of("missing", Metadata.ASCII_STRING_MARSHALLER), "writeOptions");
+                            responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT, trailers));
+                            return;
+                        }
+                        accessCheckRequest = AccessCheckRequest.newBuilder()
+                                .setUserId(userId)
+                                .setValuation(request.getWriteOptions().getValuation().name())
+                                .setState(request.getWriteOptions().getState().name())
+                                .setNamespace(request.getPath())
+                                .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
+                                .build();
+                    }
                     ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
                             .withCallCredentials(credentials)
                             .hasAccess(accessCheckRequest);
@@ -160,13 +196,14 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                 return;
                             }
 
-                            dataAccessService.getAccessToken(span, userId, request.getPrivilege(), request.getPath())
+                            dataAccessService.getAccessToken(span, userId, request.getPrivilege(), request.getPath(), null, null)
                                     .orTimeout(10, TimeUnit.SECONDS)
                                     .thenAccept(token -> {
                                         Tracing.restoreTracingContext(tracerAndSpan);
                                         responseObserver.onNext(traceOutputMessage(span, AccessTokenResponse.newBuilder()
-                                                .setAccessToken(token.getAccessToken()).setExpirationTime(token.getExpirationTime())
-                                                .setParentUri(dataset.getParentUri())
+                                                .setAccessToken(token.getAccessToken())
+                                                .setExpirationTime(token.getExpirationTime())
+                                                .setParentUri(token.getParentUri())
                                                 .build()));
                                         responseObserver.onCompleted();
                                         span.finish();

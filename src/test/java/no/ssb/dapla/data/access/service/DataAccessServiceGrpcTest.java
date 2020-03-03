@@ -15,6 +15,7 @@ import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
 import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
+import no.ssb.dapla.data.access.protobuf.Privilege;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
@@ -41,7 +42,7 @@ public class DataAccessServiceGrpcTest {
         DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
         AccessTokenResponse response = client.getAccessToken(AccessTokenRequest.newBuilder()
                 .setPath("/path/to/dataset")
-                .setPrivilege(AccessTokenRequest.Privilege.READ)
+                .setPrivilege(Privilege.READ)
                 .setUserId("user")
                 .build());
         assertNotNull(response);
