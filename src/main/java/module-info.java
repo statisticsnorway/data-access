@@ -48,7 +48,6 @@ module no.ssb.dapla.data.access {
     requires io.helidon.tracing;
     requires com.google.auth.oauth2;
     requires com.google.auth;
-    requires no.ssb.dapla.dataset.uri;
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with DataAccessApplicationBuilder;
 }
