@@ -4,7 +4,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
@@ -20,9 +19,11 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
+import no.ssb.dapla.data.access.protobuf.DatasetState;
 import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
 import no.ssb.dapla.data.access.protobuf.Privilege;
+import no.ssb.dapla.data.access.protobuf.Valuation;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import no.ssb.helidon.application.TracerAndSpan;
@@ -166,18 +167,31 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                 .build();
                     } else { // WRITE
                         if (!request.hasWriteOptions()) {
+
+                            /*
                             Metadata trailers = new Metadata();
                             trailers.put(Metadata.Key.of("missing", Metadata.ASCII_STRING_MARSHALLER), "writeOptions");
                             responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT, trailers));
                             return;
+                            */
+
+                            accessCheckRequest = AccessCheckRequest.newBuilder()
+                                    .setUserId(userId)
+                                    .setValuation(Valuation.OPEN.name()) // demo workaround
+                                    .setState(DatasetState.INPUT.name()) // demo workaround
+                                    .setNamespace(request.getPath())
+                                    .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
+                                    .build();
+                        } else {
+
+                            accessCheckRequest = AccessCheckRequest.newBuilder()
+                                    .setUserId(userId)
+                                    .setValuation(request.getWriteOptions().getValuation().name())
+                                    .setState(request.getWriteOptions().getState().name())
+                                    .setNamespace(request.getPath())
+                                    .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
+                                    .build();
                         }
-                        accessCheckRequest = AccessCheckRequest.newBuilder()
-                                .setUserId(userId)
-                                .setValuation(request.getWriteOptions().getValuation().name())
-                                .setState(request.getWriteOptions().getState().name())
-                                .setNamespace(request.getPath())
-                                .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
-                                .build();
                     }
                     ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
                             .withCallCredentials(credentials)
