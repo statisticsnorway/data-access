@@ -1,6 +1,8 @@
 package no.ssb.dapla.data.access.service;
 
 import io.grpc.Channel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
@@ -27,8 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(IntegrationTestExtension.class)
 @GrpcMockRegistryConfig(DataAccessServiceGrpcTest.DataAccessGrpcMockRegistry.class)
@@ -48,6 +50,21 @@ public class DataAccessServiceGrpcTest {
         assertNotNull(response);
         assertThat(response.getAccessToken()).isEqualTo("localstack-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+    }
+
+    @Test
+    public void thatInvalidUserFails() {
+        StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
+                () -> {
+                    DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
+                    client.getAccessToken(AccessTokenRequest.newBuilder()
+                            .setPath("/path/to/dataset")
+                            .setPrivilege(AccessTokenRequest.Privilege.READ)
+                            .setUserId("userxxx")
+                            .build());
+                },
+                "Expect access denied exception");
+        assertEquals(exception.getStatus(), Status.PERMISSION_DENIED);
     }
 
     @Test

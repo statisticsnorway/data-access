@@ -51,4 +51,16 @@ class DataAccessServiceHttpTest {
         assertThat(response.getParentUri()).isEqualTo("gs://root");
         assertThat(response.getVersion()).isEqualTo("1");
     }
+
+    @Test
+    public void thatInvalidUserFails() {
+        AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
+                .setUserId("userxxx")
+                .setPath("myLocation")
+                .setPrivilege(AccessTokenRequest.Privilege.READ)
+                .build();
+
+        testClient.post("/rpc/DataAccessService/getAccessToken", accessTokenRequest).expect403Forbidden();
+    }
+
 }
