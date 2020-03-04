@@ -14,6 +14,7 @@ import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
 import no.ssb.dapla.auth.dataset.protobuf.Role;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc.CatalogServiceFutureStub;
 import no.ssb.dapla.catalog.protobuf.Dataset;
+import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
@@ -24,6 +25,7 @@ import no.ssb.dapla.data.access.protobuf.LocationRequest;
 import no.ssb.dapla.data.access.protobuf.LocationResponse;
 import no.ssb.dapla.data.access.protobuf.Privilege;
 import no.ssb.dapla.data.access.protobuf.Valuation;
+import no.ssb.dapla.data.access.protobuf.WriteOptions;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
 import no.ssb.helidon.application.TracerAndSpan;
@@ -33,14 +35,17 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+import static java.util.Optional.ofNullable;
 import static no.ssb.helidon.application.Tracing.logError;
 import static no.ssb.helidon.application.Tracing.traceOutputMessage;
 
 public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServiceImplBase {
 
-    private static final String DEFAULT_LOCATION = "DATA_ACCESS_SERVICE_DEFAULT_LOCATION";
     private final DataAccessService dataAccessService;
     private final AuthServiceFutureStub authServiceFutureStub;
     private final CatalogServiceFutureStub catalogServiceFutureStub;
@@ -54,74 +59,62 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         this.catalogServiceFutureStub = catalogServiceFutureStub;
     }
 
-    private Role.Privilege toDataAccessPrivilege(no.ssb.dapla.data.access.protobuf.Privilege privilege) {
-        switch (privilege) {
-            case READ:
-                return Role.Privilege.READ;
-            case WRITE:
-                return Role.Privilege.CREATE; // TODO: potentially differentiate between create and update
-            case UNRECOGNIZED:
-            default:
-                throw new IllegalArgumentException();
-        }
-    }
-
     @Override
     public void getLocation(LocationRequest request, StreamObserver<LocationResponse> responseObserver) {
         TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
         Span span = tracerAndSpan.span();
         try {
-            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
-                    .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token()))
-                    .get(GetDatasetRequest.newBuilder()
-                            .setPath(request.getPath())
-                            .setTimestamp(request.getSnapshot())
-                            .build());
-            Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
+            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token());
+            String userId = request.getUserId();
 
-                @Override
-                public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
-                    //TODO: Implement routing based on valuation and state
+            if (Privilege.READ.equals(request.getPrivilege())) {
 
-                    if (!getDatasetResponse.hasDataset()) {
-                        responseObserver.onNext(LocationResponse.newBuilder()
-                                .setParentUri(System.getenv().get(DEFAULT_LOCATION))
-                                .build());
-                        responseObserver.onCompleted();
-                        span.finish();
-                        return;
-                    }
+                readRequest(responseObserver, request.getPath(), request.getSnapshot(), tracerAndSpan, span, credentials, userId,
+                        (getDatasetResponse, accessCheckResponse) -> {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+                            LocationResponse locationResponse = LocationResponse.newBuilder()
+                                    .setAccessAllowed(accessCheckResponse.getAllowed())
+                                    .setParentUri(ofNullable(getDatasetResponse)
+                                            .filter(GetDatasetResponse::hasDataset)
+                                            .map(GetDatasetResponse::getDataset)
+                                            .map(Dataset::getParentUri)
+                                            .filter(parentUri -> !parentUri.isBlank())
+                                            .orElseThrow()
+                                    )
+                                    .setVersion(ofNullable(getDatasetResponse)
+                                            .filter(GetDatasetResponse::hasDataset)
+                                            .map(GetDatasetResponse::getDataset)
+                                            .map(Dataset::getId)
+                                            .map(DatasetId::getTimestamp)
+                                            .filter(ts -> ts != 0)
+                                            .map(String::valueOf)
+                                            .orElseThrow())
+                                    .build();
+                            responseObserver.onNext(traceOutputMessage(span, locationResponse));
+                            responseObserver.onCompleted();
+                            span.finish();
+                        }
+                );
 
-                    Dataset dataset = getDatasetResponse.getDataset();
-                    if (dataset.hasId()) {
-                        responseObserver.onNext(LocationResponse.newBuilder()
-                                .setParentUri(dataset.getParentUri())
-                                .setVersion(Long.toString(getDatasetResponse.getDataset().getId().getTimestamp()))
-                                .build());
-                    } else {
-                        responseObserver.onNext(LocationResponse.newBuilder()
-                                //TODO: Implement routing based on valuation and state
-                                .setParentUri(System.getenv().get(DEFAULT_LOCATION))
-                                .build());
+            } else { // WRITE
 
-                    }
-                    responseObserver.onCompleted();
-                    span.finish();
-                }
-
-                @Override
-                public void onFailure(Throwable throwable) {
-                    try {
-                        Tracing.restoreTracingContext(tracerAndSpan);
-                        logError(span, throwable, "error while preforming catalog get");
-                        LOG.error("getAccessToken: error while preforming catalog get", throwable);
-                        responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                    } finally {
-                        span.finish();
-                    }
-                }
-            }, MoreExecutors.directExecutor());
-
+                writeRequest(responseObserver, request.hasWriteOptions(), request.getWriteOptions(), request.getPath(), tracerAndSpan, span, credentials, userId,
+                        accessCheckResponse -> {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+                            if (accessCheckResponse.getAllowed()) {
+                                responseObserver.onNext(traceOutputMessage(span, LocationResponse.newBuilder()
+                                        .setAccessAllowed(true)
+                                        .setParentUri(System.getenv().get("DATA_ACCESS_SERVICE_DEFAULT_LOCATION")) //TODO: Implement routing based on path, valuation, and state
+                                        .build()));
+                            } else {
+                                responseObserver.onNext(traceOutputMessage(span, LocationResponse.newBuilder()
+                                        .setAccessAllowed(false)
+                                        .build()));
+                            }
+                            responseObserver.onCompleted();
+                            span.finish();
+                        });
+            }
         } catch (RuntimeException | Error e) {
             try {
                 logError(span, e, "top-level error");
@@ -138,71 +131,17 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getAccessToken");
         Span span = tracerAndSpan.span();
         try {
-            String userId = request.getUserId();
             final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token());
-            ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
-                    .withCallCredentials(credentials)
-                    .get(GetDatasetRequest.newBuilder()
-                            .setPath(request.getPath())
-                            .setTimestamp(request.getSnapshot())
-                            .build());
-            Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
+            String userId = request.getUserId();
 
-                @Override
-                public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
-                    AccessCheckRequest accessCheckRequest;
-                    if (Privilege.READ.equals(request.getPrivilege())) {
-                        if (!getDatasetResponse.hasDataset()) {
-                            // no record of dataset in catalog
-                            responseObserver.onError(new StatusException(Status.NOT_FOUND));
-                            return;
-                        }
-                        Dataset dataset = getDatasetResponse.getDataset();
-                        accessCheckRequest = AccessCheckRequest.newBuilder()
-                                .setUserId(userId)
-                                .setValuation(dataset.getValuation().name())
-                                .setState(dataset.getState().name())
-                                .setNamespace(request.getPath())
-                                .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
-                                .build();
-                    } else { // WRITE
-                        if (!request.hasWriteOptions()) {
+            if (Privilege.READ.equals(request.getPrivilege())) {
 
-                            /*
-                            Metadata trailers = new Metadata();
-                            trailers.put(Metadata.Key.of("missing", Metadata.ASCII_STRING_MARSHALLER), "writeOptions");
-                            responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT, trailers));
-                            return;
-                            */
+                readRequest(responseObserver, request.getPath(), request.getSnapshot(), tracerAndSpan, span, credentials, userId,
+                        (getDatasetResponse, accessCheckResponse) -> {
+                            Tracing.restoreTracingContext(tracerAndSpan);
 
-                            accessCheckRequest = AccessCheckRequest.newBuilder()
-                                    .setUserId(userId)
-                                    .setValuation(Valuation.OPEN.name()) // demo workaround
-                                    .setState(DatasetState.INPUT.name()) // demo workaround
-                                    .setNamespace(request.getPath())
-                                    .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
-                                    .build();
-                        } else {
-
-                            accessCheckRequest = AccessCheckRequest.newBuilder()
-                                    .setUserId(userId)
-                                    .setValuation(request.getWriteOptions().getValuation().name())
-                                    .setState(request.getWriteOptions().getState().name())
-                                    .setNamespace(request.getPath())
-                                    .setPrivilege(toDataAccessPrivilege(request.getPrivilege()).name())
-                                    .build();
-                        }
-                    }
-                    ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
-                            .withCallCredentials(credentials)
-                            .hasAccess(accessCheckRequest);
-
-                    Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
-                        @Override
-                        public void onSuccess(@Nullable AccessCheckResponse accessCheckResponse) {
                             if (!accessCheckResponse.getAllowed()) {
                                 try {
-                                    Tracing.restoreTracingContext(tracerAndSpan);
                                     responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
                                 } finally {
                                     span.finish();
@@ -210,7 +149,59 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                 return;
                             }
 
-                            dataAccessService.getAccessToken(span, userId, request.getPrivilege(), request.getPath(), null, null)
+                            CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getAccessToken(
+                                    span, userId, request.getPrivilege(), request.getPath(),
+                                    Valuation.valueOf(getDatasetResponse.getDataset().getValuation().name()),
+                                    DatasetState.valueOf(getDatasetResponse.getDataset().getState().name()));
+
+                            accessTokenFuture
+                                    .orTimeout(10, TimeUnit.SECONDS)
+                                    .thenAccept(token -> {
+                                        Tracing.restoreTracingContext(tracerAndSpan);
+                                        responseObserver.onNext(traceOutputMessage(span, AccessTokenResponse.newBuilder()
+                                                .setAccessToken(token.getAccessToken())
+                                                .setExpirationTime(token.getExpirationTime())
+                                                .setParentUri(getDatasetResponse.getDataset().getParentUri())
+                                                .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()))
+                                                .build()));
+                                        responseObserver.onCompleted();
+                                        span.finish();
+                                    })
+                                    .exceptionally(throwable -> {
+                                        try {
+                                            Tracing.restoreTracingContext(tracerAndSpan);
+                                            logError(span, throwable, "error in getAccessToken()");
+                                            LOG.error(String.format("getAccessToken()"), throwable);
+                                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                                            return null;
+                                        } finally {
+                                            span.finish();
+                                        }
+                                    });
+                        }
+                );
+
+            } else { // WRITE
+
+                writeRequest(responseObserver, request.hasWriteOptions(), request.getWriteOptions(), request.getPath(), tracerAndSpan, span, credentials, userId,
+                        accessCheckResponse -> {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+
+                            if (!accessCheckResponse.getAllowed()) {
+                                try {
+                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
+                                } finally {
+                                    span.finish();
+                                }
+                                return;
+                            }
+
+                            CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getAccessToken(
+                                    span, userId, request.getPrivilege(), request.getPath(),
+                                    request.getWriteOptions().getValuation(),
+                                    request.getWriteOptions().getState());
+
+                            accessTokenFuture
                                     .orTimeout(10, TimeUnit.SECONDS)
                                     .thenAccept(token -> {
                                         Tracing.restoreTracingContext(tracerAndSpan);
@@ -233,37 +224,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                             span.finish();
                                         }
                                     });
-                        }
-
-                        @Override
-                        public void onFailure(Throwable throwable) {
-                            try {
-                                Tracing.restoreTracingContext(tracerAndSpan);
-                                logError(span, throwable, "error while performing authServiceFutureStub.hasAccess");
-                                LOG.error("getAccessToken: error while performing authServiceFutureStub.hasAccess", throwable);
-                                LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
-                                responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                            } finally {
-                                span.finish();
-                            }
-                        }
-                    }, MoreExecutors.directExecutor());
-
-                }
-
-                @Override
-                public void onFailure(Throwable throwable) {
-                    try {
-                        Tracing.restoreTracingContext(tracerAndSpan);
-                        logError(span, throwable, "error while performing catalog get");
-                        LOG.error("getAccessToken: error while performing catalog get", throwable);
-                        responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                    } finally {
-                        span.finish();
-                    }
-                }
-            }, MoreExecutors.directExecutor());
-
+                        });
+            }
         } catch (RuntimeException | Error e) {
             try {
                 logError(span, e, "top-level error");
@@ -273,5 +235,123 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 span.finish();
             }
         }
+    }
+
+    <R> void readRequest(StreamObserver<R> responseObserver, final String path, long snapshot, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String userId, BiConsumer<GetDatasetResponse, AccessCheckResponse> onUserAccessResponseConsumer) {
+
+        // TODO Add fallback that reads metadata directly from bucket instead of catalog. That will allow this service
+        // TODO to continue functioning even when catalog is down.
+
+        ListenableFuture<GetDatasetResponse> responseListenableFuture = catalogServiceFutureStub
+                .withCallCredentials(credentials)
+                .get(GetDatasetRequest.newBuilder()
+                        .setPath(path)
+                        .setTimestamp(snapshot)
+                        .build());
+
+        Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
+            @Override
+            public void onSuccess(@Nullable GetDatasetResponse getDatasetResponse) {
+
+                if (ofNullable(getDatasetResponse)
+                        .filter(GetDatasetResponse::hasDataset)
+                        .map(GetDatasetResponse::getDataset)
+                        .map(Dataset::getId)
+                        .map(DatasetId::getPath)
+                        .orElse("")
+                        .isBlank()) {
+                    // no record of dataset in catalog
+                    responseObserver.onError(new StatusException(Status.NOT_FOUND));
+                    return;
+                }
+
+                Dataset dataset = getDatasetResponse.getDataset();
+                AccessCheckRequest accessCheckRequest = AccessCheckRequest.newBuilder()
+                        .setUserId(userId)
+                        .setValuation(dataset.getValuation().name())
+                        .setState(dataset.getState().name())
+                        .setNamespace(path)
+                        .setPrivilege(Role.Privilege.READ.name())
+                        .build();
+
+                ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
+                        .withCallCredentials(credentials)
+                        .hasAccess(accessCheckRequest);
+
+                Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(@Nullable AccessCheckResponse accessCheckResponse) {
+                        onUserAccessResponseConsumer.accept(getDatasetResponse, accessCheckResponse);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable throwable) {
+                        try {
+                            Tracing.restoreTracingContext(tracerAndSpan);
+                            logError(span, throwable, "error while performing authServiceFutureStub.hasAccess");
+                            LOG.error("getAccessToken: error while performing authServiceFutureStub.hasAccess", throwable);
+                            LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
+                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                        } finally {
+                            span.finish();
+                        }
+                    }
+                }, MoreExecutors.directExecutor());
+
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                try {
+                    Tracing.restoreTracingContext(tracerAndSpan);
+                    logError(span, throwable, "error while performing catalog get");
+                    LOG.error("readRequest: error while performing catalog get", throwable);
+                    responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                } finally {
+                    span.finish();
+                }
+            }
+        }, MoreExecutors.directExecutor());
+    }
+
+    <R> void writeRequest(StreamObserver<R> responseObserver, boolean hasWriteOptions, WriteOptions writeOptions, String path, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String userId, Consumer<AccessCheckResponse> consumer) {
+
+        if (!hasWriteOptions) {
+            // write operation without required write-options
+            responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT));
+            return;
+        }
+
+        AccessCheckRequest accessCheckRequest = AccessCheckRequest.newBuilder()
+                .setUserId(userId)
+                .setValuation(writeOptions.getValuation().name())
+                .setState(writeOptions.getState().name())
+                .setNamespace(path)
+                .setPrivilege(Role.Privilege.CREATE.name())
+                .build();
+
+        ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
+                .withCallCredentials(credentials)
+                .hasAccess(accessCheckRequest);
+
+        Futures.addCallback(accessCheckResponseListenableFuture, new FutureCallback<>() {
+            @Override
+            public void onSuccess(@Nullable AccessCheckResponse accessCheckResponse) {
+                consumer.accept(accessCheckResponse);
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                try {
+                    Tracing.restoreTracingContext(tracerAndSpan);
+                    logError(span, throwable, "error while performing authServiceFutureStub.hasAccess");
+                    LOG.error("writeRequest: error while performing authServiceFutureStub.hasAccess", throwable);
+                    LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
+                    responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                } finally {
+                    span.finish();
+                }
+            }
+        }, MoreExecutors.directExecutor());
     }
 }
