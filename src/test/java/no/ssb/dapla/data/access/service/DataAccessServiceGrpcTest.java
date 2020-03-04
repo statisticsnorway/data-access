@@ -59,7 +59,7 @@ public class DataAccessServiceGrpcTest {
                     DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
                     client.getAccessToken(AccessTokenRequest.newBuilder()
                             .setPath("/path/to/dataset")
-                            .setPrivilege(AccessTokenRequest.Privilege.READ)
+                            .setPrivilege(Privilege.READ)
                             .setUserId("userxxx")
                             .build());
                 },

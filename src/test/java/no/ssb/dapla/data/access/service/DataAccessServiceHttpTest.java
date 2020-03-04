@@ -27,7 +27,7 @@ class DataAccessServiceHttpTest {
     void thatGetAccessTokenWorks() {
         AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
                 .setUserId("user")
-                .setPath("myLocation")
+                .setPath("/path/to/dataset")
                 .setPrivilege(Privilege.READ)
                 .build();
         AccessTokenResponse response = testClient.post("/rpc/DataAccessService/getAccessToken", accessTokenRequest,
@@ -35,6 +35,17 @@ class DataAccessServiceHttpTest {
         assertNotNull(response);
         assertThat(response.getAccessToken()).isEqualTo("localstack-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+    }
+
+    @Test
+    public void thatInvalidUserFails() {
+        AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
+                .setUserId("userxxx")
+                .setPath("/path/to/dataset")
+                .setPrivilege(Privilege.READ)
+                .build();
+
+        testClient.post("/rpc/DataAccessService/getAccessToken", accessTokenRequest).expect403Forbidden();
     }
 
     @Test
@@ -50,17 +61,6 @@ class DataAccessServiceHttpTest {
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://root");
         assertThat(response.getVersion()).isEqualTo("1");
-    }
-
-    @Test
-    public void thatInvalidUserFails() {
-        AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
-                .setUserId("userxxx")
-                .setPath("myLocation")
-                .setPrivilege(AccessTokenRequest.Privilege.READ)
-                .build();
-
-        testClient.post("/rpc/DataAccessService/getAccessToken", accessTokenRequest).expect403Forbidden();
     }
 
 }
