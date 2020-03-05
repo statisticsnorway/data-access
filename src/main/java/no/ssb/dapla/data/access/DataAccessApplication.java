@@ -61,7 +61,7 @@ public class DataAccessApplication extends DefaultHelidonApplication {
         put(Config.class, config);
 
         DataAccessService dataAccessService;
-        if (config.get("data-access.provider").asString().equals(GoogleDataAccessService.class.getName())) {
+        if (config.get("data-access.provider").asString().get().equals(GoogleDataAccessService.class.getName())) {
             dataAccessService = new GoogleDataAccessService();
         } else {
             dataAccessService = new LocalstackDataAccessService();
