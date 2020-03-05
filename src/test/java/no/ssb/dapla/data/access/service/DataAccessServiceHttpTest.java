@@ -26,7 +26,6 @@ class DataAccessServiceHttpTest {
     @Test
     void thatGetAccessTokenWorks() {
         AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
-                .setUserId("user")
                 .setPath("/path/to/dataset")
                 .setPrivilege(Privilege.READ)
                 .build();
@@ -40,7 +39,6 @@ class DataAccessServiceHttpTest {
     @Test
     public void thatInvalidUserFails() {
         AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
-                .setUserId("userxxx")
                 .setPath("/path/to/dataset")
                 .setPrivilege(Privilege.READ)
                 .build();
@@ -51,7 +49,6 @@ class DataAccessServiceHttpTest {
     @Test
     public void thatGetLocationWorks() {
         LocationRequest locationRequest = LocationRequest.newBuilder()
-                .setUserId("user")
                 .setSnapshot(2)
                 .setPath("/path/to/dataset")
                 .build();

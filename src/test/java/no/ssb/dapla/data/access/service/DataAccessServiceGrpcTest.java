@@ -29,8 +29,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(IntegrationTestExtension.class)
 @GrpcMockRegistryConfig(DataAccessServiceGrpcTest.DataAccessGrpcMockRegistry.class)
@@ -45,7 +47,6 @@ public class DataAccessServiceGrpcTest {
         AccessTokenResponse response = client.getAccessToken(AccessTokenRequest.newBuilder()
                 .setPath("/path/to/dataset")
                 .setPrivilege(Privilege.READ)
-                .setUserId("user")
                 .build());
         assertNotNull(response);
         assertThat(response.getAccessToken()).isEqualTo("localstack-token");
@@ -60,7 +61,6 @@ public class DataAccessServiceGrpcTest {
                     client.getAccessToken(AccessTokenRequest.newBuilder()
                             .setPath("/path/to/dataset")
                             .setPrivilege(Privilege.READ)
-                            .setUserId("userxxx")
                             .build());
                 },
                 "Expect access denied exception");
@@ -73,7 +73,6 @@ public class DataAccessServiceGrpcTest {
         LocationResponse response = client.getLocation(LocationRequest.newBuilder()
                 .setPath("/path/to/dataset")
                 .setSnapshot(2)
-                .setUserId("user")
                 .build());
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://root");

@@ -1,5 +1,7 @@
 package no.ssb.dapla.data.access.service;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -64,8 +66,11 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
         Span span = tracerAndSpan.span();
         try {
-            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token());
-            String userId = request.getUserId();
+            String bearerToken = AuthorizationInterceptor.token();
+            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(bearerToken);
+            DecodedJWT decodedJWT = JWT.decode(bearerToken);
+            String userId = decodedJWT.getClaim("preferred_username").asString();
+            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
             if (Privilege.READ.equals(request.getPrivilege())) {
 
@@ -131,8 +136,11 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getAccessToken");
         Span span = tracerAndSpan.span();
         try {
-            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(AuthorizationInterceptor.token());
-            String userId = request.getUserId();
+            String bearerToken = AuthorizationInterceptor.token();
+            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(bearerToken);
+            DecodedJWT decodedJWT = JWT.decode(bearerToken);
+            String userId = decodedJWT.getClaim("preferred_username").asString();
+            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
             if (Privilege.READ.equals(request.getPrivilege())) {
 
