@@ -1,10 +1,16 @@
 package no.ssb.dapla.data.access.service;
 
-import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
-import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
-import no.ssb.dapla.data.access.protobuf.LocationRequest;
-import no.ssb.dapla.data.access.protobuf.LocationResponse;
-import no.ssb.dapla.data.access.protobuf.Privilege;
+import no.ssb.dapla.data.access.protobuf.ReadAccessTokenRequest;
+import no.ssb.dapla.data.access.protobuf.ReadAccessTokenResponse;
+import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
+import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
+import no.ssb.dapla.data.access.protobuf.WriteAccessTokenRequest;
+import no.ssb.dapla.data.access.protobuf.WriteAccessTokenResponse;
+import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
+import no.ssb.dapla.data.access.protobuf.WriteLocationResponse;
+import no.ssb.dapla.dataset.api.DatasetId;
+import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.TestClient;
@@ -17,47 +23,64 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(IntegrationTestExtension.class)
-@GrpcMockRegistryConfig(DataAccessServiceGrpcTest.DataAccessGrpcMockRegistry.class)
+@GrpcMockRegistryConfig(DataAccessGrpcMockRegistry.class)
 class DataAccessServiceHttpTest {
 
     @Inject
     TestClient testClient;
 
     @Test
-    void thatGetAccessTokenWorks() {
-        AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
-                .setPath("/path/to/dataset")
-                .setPrivilege(Privilege.READ)
-                .build();
-        AccessTokenResponse response = testClient.post("/rpc/DataAccessService/getAccessToken", accessTokenRequest,
-                AccessTokenResponse.class).body();
-        assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("localstack-token");
-        assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
-    }
-
-    @Test
-    public void thatInvalidUserFails() {
-        AccessTokenRequest accessTokenRequest = AccessTokenRequest.newBuilder()
-                .setPath("/path/to/dataset")
-                .setPrivilege(Privilege.READ)
-                .build();
-
-        testClient.post("/rpc/DataAccessService/getAccessToken", accessTokenRequest).expect403Forbidden();
-    }
-
-    @Test
-    public void thatGetLocationWorks() {
-        LocationRequest locationRequest = LocationRequest.newBuilder()
-                .setSnapshot(2)
-                .setPath("/path/to/dataset")
-                .build();
-
-        LocationResponse response = testClient.post("/rpc/DataAccessService/getLocation", locationRequest,
-                LocationResponse.class).body();
+    public void thatReadLocationWorks() {
+        ReadLocationResponse response = testClient
+                .post("/rpc/DataAccessService/readLocation", ReadLocationRequest.newBuilder()
+                        .setPath("/path/to/dataset")
+                        .setSnapshot(2)
+                        .build(),
+                ReadLocationResponse.class).body();
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://root");
         assertThat(response.getVersion()).isEqualTo("1");
     }
 
+    @Test
+    public void thatReadAccessTokenWorks() {
+        ReadAccessTokenResponse response = testClient.post("/rpc/DataAccessService/readAccessToken", ReadAccessTokenRequest.newBuilder()
+                        .setPath("/path/to/dataset")
+                        .build(),
+                ReadAccessTokenResponse.class).body();
+        assertNotNull(response);
+        assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
+        assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+    }
+
+    @Test
+    public void thatWriteLocationThenGetAccessTokenWorks() {
+        WriteLocationResponse writeLocationResponse = testClient.post("/rpc/DataAccessService/writeLocation", WriteLocationRequest.newBuilder()
+                        .setMetadataJson(ProtobufJsonUtils.toString(DatasetMeta.newBuilder()
+                                .setId(DatasetId.newBuilder()
+                                        .setPath("/junit/write-loc-and-access-test")
+                                        .setVersion(System.currentTimeMillis())
+                                        .build())
+                                .setType(DatasetMeta.Type.BOUNDED)
+                                .setValuation(DatasetMeta.Valuation.INTERNAL)
+                                .setState(DatasetMeta.DatasetState.INPUT)
+                                .build()))
+                        .build(),
+                WriteLocationResponse.class).body();
+
+        assertNotNull(writeLocationResponse);
+        assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
+        DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
+        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
+
+        WriteAccessTokenResponse writeAccessTokenResponse = testClient.post("/rpc/DataAccessService/writeAccessToken", WriteAccessTokenRequest.newBuilder()
+                        .setMetadataJson(writeLocationResponse.getValidMetadataJson())
+                        .setMetadataSignature(writeLocationResponse.getMetadataSignature())
+                        .build(),
+                WriteAccessTokenResponse.class).body();
+
+        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
+        assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+    }
 }
