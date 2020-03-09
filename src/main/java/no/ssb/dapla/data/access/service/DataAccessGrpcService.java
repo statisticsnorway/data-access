@@ -80,7 +80,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             String userId = decodedJWT.getClaim("preferred_username").asString();
             //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
-            readRequest(responseObserver, request.getPath(), request.getSnapshot(), tracerAndSpan, span, credentials, userId,
+            readRequest(responseObserver, request.getPath(), String.valueOf(request.getSnapshot()), tracerAndSpan, span, credentials, userId,
                     (getDatasetResponse, accessCheckResponse) -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
                         ReadLocationResponse response = ReadLocationResponse.newBuilder()
@@ -127,7 +127,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             String userId = decodedJWT.getClaim("preferred_username").asString();
             //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
-            readRequest(responseObserver, request.getPath(), request.getSnapshot(), tracerAndSpan, span, credentials, userId,
+            readRequest(responseObserver, request.getPath(), request.getVersion(), tracerAndSpan, span, credentials, userId,
                     (getDatasetResponse, accessCheckResponse) -> {
                         Tracing.restoreTracingContext(tracerAndSpan);
 
@@ -183,7 +183,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         }
     }
 
-    <R> void readRequest(StreamObserver<R> responseObserver, final String path, long snapshot, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String userId, BiConsumer<GetDatasetResponse, AccessCheckResponse> onUserAccessResponseConsumer) {
+    <R> void readRequest(StreamObserver<R> responseObserver, final String path, String version, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String userId, BiConsumer<GetDatasetResponse, AccessCheckResponse> onUserAccessResponseConsumer) {
 
         // TODO Add fallback that reads metadata directly from bucket instead of catalog. That will allow this service
         // TODO to continue functioning even when catalog is down.
@@ -192,7 +192,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 .withCallCredentials(credentials)
                 .get(GetDatasetRequest.newBuilder()
                         .setPath(path)
-                        .setTimestamp(snapshot)
+                        .setTimestamp(Long.parseLong(version))
                         .build());
 
         Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
