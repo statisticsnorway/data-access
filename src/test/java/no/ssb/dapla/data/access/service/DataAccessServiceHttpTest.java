@@ -1,5 +1,7 @@
 package no.ssb.dapla.data.access.service;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import no.ssb.dapla.data.access.protobuf.ReadAccessTokenRequest;
 import no.ssb.dapla.data.access.protobuf.ReadAccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
@@ -29,14 +31,18 @@ class DataAccessServiceHttpTest {
     @Inject
     TestClient testClient;
 
+    String[] headers = new String [] {"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", "user")
+            .sign(Algorithm.HMAC256("secret"))};
+
     @Test
     public void thatReadLocationWorks() {
+
         ReadLocationResponse response = testClient
                 .post("/rpc/DataAccessService/readLocation", ReadLocationRequest.newBuilder()
                         .setPath("/path/to/dataset")
                         .setSnapshot(2)
                         .build(),
-                ReadLocationResponse.class).body();
+                ReadLocationResponse.class, headers).body();
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://root");
         assertThat(response.getVersion()).isEqualTo("1");
@@ -47,7 +53,7 @@ class DataAccessServiceHttpTest {
         ReadAccessTokenResponse response = testClient.post("/rpc/DataAccessService/readAccessToken", ReadAccessTokenRequest.newBuilder()
                         .setPath("/path/to/dataset")
                         .build(),
-                ReadAccessTokenResponse.class).body();
+                ReadAccessTokenResponse.class, headers).body();
         assertNotNull(response);
         assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
@@ -66,7 +72,7 @@ class DataAccessServiceHttpTest {
                                 .setState(DatasetMeta.DatasetState.INPUT)
                                 .build()))
                         .build(),
-                WriteLocationResponse.class).body();
+                WriteLocationResponse.class, headers).body();
 
         assertNotNull(writeLocationResponse);
         assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
@@ -78,7 +84,7 @@ class DataAccessServiceHttpTest {
                         .setMetadataJson(writeLocationResponse.getValidMetadataJson())
                         .setMetadataSignature(writeLocationResponse.getMetadataSignature())
                         .build(),
-                WriteAccessTokenResponse.class).body();
+                WriteAccessTokenResponse.class, headers).body();
 
         assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
         assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
