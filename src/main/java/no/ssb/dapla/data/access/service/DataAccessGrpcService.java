@@ -200,7 +200,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 .withCallCredentials(credentials)
                 .get(GetDatasetRequest.newBuilder()
                         .setPath(path)
-                        .setTimestamp(Long.parseLong(version))
+                        .setTimestamp((version == null || version.length() == 0) ? 0 : Long.parseLong(version))
                         .build());
 
         Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
