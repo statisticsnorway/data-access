@@ -16,14 +16,13 @@ public class MetadataSigner {
 
     final Signature signature;
 
-    public MetadataSigner() {
+    public MetadataSigner(String keystoreFormat, String keystorePath, String keyAlias, char[] password, String algorithm) {
         try {
-            char[] password = new char[]{'c', 'h', 'a', 'n', 'g', 'e', 'i', 't'};
-            KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            keyStore.load(new FileInputStream("secret/metadata-signer_keystore.p12"), password);
-            PrivateKey privateKey = (PrivateKey) keyStore.getKey("dataAccessKeyPair", password);
+            KeyStore keyStore = KeyStore.getInstance(keystoreFormat);
+            keyStore.load(new FileInputStream(keystorePath), password);
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(keyAlias, password);
 
-            signature = Signature.getInstance("SHA256withRSA");
+            signature = Signature.getInstance(algorithm);
             signature.initSign(privateKey);
         } catch (NoSuchAlgorithmException | CertificateException | KeyStoreException | InvalidKeyException | UnrecoverableKeyException | IOException e) {
             throw new RuntimeException(e);

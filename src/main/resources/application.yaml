@@ -35,3 +35,17 @@ tracing:
       enabled: false
     - path: "/health"
       enabled: false
+
+metadatads:
+  signer:
+    format: PKCS12
+    keystore: secret/metadata-signer_keystore.p12
+    keyAlias: dataAccessKeyPair
+    password: changeit
+    algorithm: SHA256withRSA
+  verifier:
+    format: PKCS12
+    keystore: secret/metadata-verifier_keystore.p12
+    keyAlias: dataAccessCertificate
+    password: changeit
+    algorithm: SHA256withRSA

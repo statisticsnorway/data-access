@@ -58,15 +58,17 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
     private final AuthServiceFutureStub authServiceFutureStub;
     private final CatalogServiceFutureStub catalogServiceFutureStub;
 
-    private final MetadataSigner metadataSigner = new MetadataSigner();
-    private final MetadataSignatureVerifier metadataSignatureVerifier = new MetadataSignatureVerifier();
+    private final MetadataSigner metadataSigner;
+    private final MetadataSignatureVerifier metadataSignatureVerifier;
 
     public DataAccessGrpcService(DataAccessService dataAccessService,
                                  AuthServiceFutureStub authServiceFutureStub,
-                                 CatalogServiceFutureStub catalogServiceFutureStub) {
+                                 CatalogServiceFutureStub catalogServiceFutureStub, MetadataSigner metadataSigner, MetadataSignatureVerifier metadataSignatureVerifier) {
         this.dataAccessService = dataAccessService;
         this.authServiceFutureStub = authServiceFutureStub;
         this.catalogServiceFutureStub = catalogServiceFutureStub;
+        this.metadataSigner = metadataSigner;
+        this.metadataSignatureVerifier = metadataSignatureVerifier;
     }
 
     @Override
