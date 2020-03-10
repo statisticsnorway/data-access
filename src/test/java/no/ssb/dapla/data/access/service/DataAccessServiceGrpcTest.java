@@ -1,33 +1,29 @@
 package no.ssb.dapla.data.access.service;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
-import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
-import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
-import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.Dataset;
-import no.ssb.dapla.catalog.protobuf.DatasetId;
-import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
-import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
-import no.ssb.dapla.data.access.protobuf.AccessTokenRequest;
-import no.ssb.dapla.data.access.protobuf.AccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
-import no.ssb.dapla.data.access.protobuf.LocationRequest;
-import no.ssb.dapla.data.access.protobuf.LocationResponse;
-import no.ssb.dapla.data.access.protobuf.Privilege;
-import no.ssb.testing.helidon.GrpcMockRegistry;
+import no.ssb.dapla.data.access.protobuf.ReadAccessTokenRequest;
+import no.ssb.dapla.data.access.protobuf.ReadAccessTokenResponse;
+import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
+import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
+import no.ssb.dapla.data.access.protobuf.WriteAccessTokenRequest;
+import no.ssb.dapla.data.access.protobuf.WriteAccessTokenResponse;
+import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
+import no.ssb.dapla.data.access.protobuf.WriteLocationResponse;
+import no.ssb.dapla.dataset.api.DatasetId;
+import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.helidon.application.GrpcAuthorizationBearerCallCredentials;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,42 +31,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(IntegrationTestExtension.class)
-@GrpcMockRegistryConfig(DataAccessServiceGrpcTest.DataAccessGrpcMockRegistry.class)
+@GrpcMockRegistryConfig(DataAccessGrpcMockRegistry.class)
 public class DataAccessServiceGrpcTest {
 
     @Inject
     Channel channel;
 
     @Test
-    public void thatGetAccessTokenWorks() {
-        DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
-        AccessTokenResponse response = client.getAccessToken(AccessTokenRequest.newBuilder()
-                .setPath("/path/to/dataset")
-                .setPrivilege(Privilege.READ)
-                .build());
-        assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("localstack-token");
-        assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
-    }
-
-    @Test
-    public void thatInvalidUserFails() {
-        StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-                () -> {
-                    DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
-                    client.getAccessToken(AccessTokenRequest.newBuilder()
-                            .setPath("/path/to/dataset")
-                            .setPrivilege(Privilege.READ)
-                            .build());
-                },
-                "Expect access denied exception");
-        assertEquals(exception.getStatus(), Status.PERMISSION_DENIED);
-    }
-
-    @Test
-    public void thatGetLocationWorks() {
-        DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel);
-        LocationResponse response = client.getLocation(LocationRequest.newBuilder()
+    public void thatReadLocationWorks() {
+        DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel)
+                .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(JWT.create()
+                        .withClaim("preferred_username", "user")
+                        .sign(Algorithm.HMAC256("secret"))));
+        ReadLocationResponse response = client.readLocation(ReadLocationRequest.newBuilder()
                 .setPath("/path/to/dataset")
                 .setSnapshot(2)
                 .build());
@@ -79,57 +52,67 @@ public class DataAccessServiceGrpcTest {
         assertThat(response.getVersion()).isEqualTo("1");
     }
 
-    private static final Map<String, Dataset> CATALOG = new HashMap<>();
-
-    static {
-
-        CATALOG.put(
-                "/path/to/dataset",
-                Dataset.newBuilder()
-                        .setState(Dataset.DatasetState.OUTPUT)
-                        .setValuation(Dataset.Valuation.OPEN)
-                        .setParentUri("gs://root")
-                        .setId(
-                                DatasetId.newBuilder()
-                                        .setPath("/path/to/dataset")
-                                        .setTimestamp(1)
-                        )
-                        .build()
-        );
+    @Test
+    public void thatReadAccessTokenWorks() {
+        DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel)
+                .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(JWT.create()
+                        .withClaim("preferred_username", "user")
+                        .sign(Algorithm.HMAC256("secret"))));
+        ReadAccessTokenResponse response = client.readAccessToken(ReadAccessTokenRequest.newBuilder()
+                .setPath("/path/to/dataset")
+                .build());
+        assertNotNull(response);
+        assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
+        assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
-    private static final Set<String> ACCESS = Set.of("user");
+    @Test
+    public void thatWriteLocationThenGetAccessTokenWorks() {
+        DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel)
+                .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(JWT.create()
+                        .withClaim("preferred_username", "user")
+                        .sign(Algorithm.HMAC256("secret"))));
 
-    public static class DataAccessGrpcMockRegistry extends GrpcMockRegistry {
-        public DataAccessGrpcMockRegistry() {
-            add(new CatalogServiceGrpc.CatalogServiceImplBase() {
-                @Override
-                public void get(GetDatasetRequest request, StreamObserver<GetDatasetResponse> responseObserver) {
+        WriteLocationResponse writeLocationResponse = client.writeLocation(WriteLocationRequest.newBuilder()
+                .setMetadataJson(ProtobufJsonUtils.toString(DatasetMeta.newBuilder()
+                        .setId(DatasetId.newBuilder()
+                                .setPath("/junit/write-loc-and-access-test")
+                                .setVersion(System.currentTimeMillis())
+                                .build())
+                        .setType(DatasetMeta.Type.BOUNDED)
+                        .setValuation(DatasetMeta.Valuation.INTERNAL)
+                        .setState(DatasetMeta.DatasetState.INPUT)
+                        .build()))
+                .build());
 
-                    GetDatasetResponse.Builder responseBuilder = GetDatasetResponse.newBuilder();
+        assertNotNull(writeLocationResponse);
+        assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
+        DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
+        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
 
-                    Dataset dataset = CATALOG.get(request.getPath());
-                    if (dataset != null) {
-                        responseBuilder.setDataset(dataset);
-                    }
-                    responseObserver.onNext(responseBuilder.build());
-                    responseObserver.onCompleted();
-                }
-            });
+        WriteAccessTokenResponse writeAccessTokenResponse = client.writeAccessToken(WriteAccessTokenRequest.newBuilder()
+                .setMetadataJson(writeLocationResponse.getValidMetadataJson())
+                .setMetadataSignature(writeLocationResponse.getMetadataSignature())
+                .build());
 
-            add(new AuthServiceGrpc.AuthServiceImplBase() {
-                @Override
-                public void hasAccess(AccessCheckRequest request, StreamObserver<AccessCheckResponse> responseObserver) {
-                    AccessCheckResponse.Builder responseBuilder = AccessCheckResponse.newBuilder();
+        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
+        assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+    }
 
-                    if (ACCESS.contains(request.getUserId())) {
-                        responseBuilder.setAllowed(true);
-                    }
-
-                    responseObserver.onNext(responseBuilder.build());
-                    responseObserver.onCompleted();
-                }
-            });
-        }
+    @Test
+    public void thatInvalidUserFails() {
+        StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
+                () -> {
+                    DataAccessServiceGrpc.DataAccessServiceBlockingStub client = DataAccessServiceGrpc.newBlockingStub(channel)
+                            .withCallCredentials(new GrpcAuthorizationBearerCallCredentials(JWT.create()
+                                    .withClaim("preferred_username", "johndoe")
+                                    .sign(Algorithm.HMAC256("secret"))));
+                    client.readAccessToken(ReadAccessTokenRequest.newBuilder()
+                            .setPath("/path/to/dataset")
+                            .build());
+                },
+                "Expect access denied exception");
+        assertEquals(exception.getStatus(), Status.PERMISSION_DENIED);
     }
 }
