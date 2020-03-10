@@ -37,9 +37,14 @@
 
     <dependencies>
         <dependency>
+            <groupId>no.ssb.dapla</groupId>
+            <artifactId>dataset-api</artifactId>
+            <version>0.1</version>
+        </dependency>
+        <dependency>
             <groupId>no.ssb.dapla.data</groupId>
             <artifactId>data-access-protobuf</artifactId>
-            <version>0.5.1</version>
+            <version>0.7</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.catalog</groupId>
@@ -71,6 +76,11 @@
                     <artifactId>opencensus-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>3.10.0</version>
         </dependency>
     </dependencies>
 

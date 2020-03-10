@@ -49,5 +49,8 @@ module no.ssb.dapla.data.access {
     requires com.google.auth.oauth2;
     requires com.google.auth;
 
+    requires java.jwt;
+    requires no.ssb.dapla.dataset.api;
+
     provides no.ssb.helidon.application.HelidonApplicationBuilder with DataAccessApplicationBuilder;
 }
