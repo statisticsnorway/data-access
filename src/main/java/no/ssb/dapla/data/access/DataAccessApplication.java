@@ -19,7 +19,6 @@ import io.opentracing.contrib.grpc.OperationNameConstructor;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc.CatalogServiceFutureStub;
 import no.ssb.dapla.data.access.health.Health;
-import no.ssb.dapla.data.access.metadata.MetadataSignatureVerifier;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.service.DataAccessGrpcService;
 import no.ssb.dapla.data.access.service.DataAccessService;
@@ -69,29 +68,17 @@ public class DataAccessApplication extends DefaultHelidonApplication {
             dataAccessService = new LocalstackDataAccessService();
         }
 
-        MetadataSigner metadataSigner;
-        {
-            Config signerConfig = config.get("metadatads.signer");
-            String keystoreFormat = signerConfig.get("format").asString().get();
-            String keystore = signerConfig.get("keystore").asString().get();
-            String keyAlias = signerConfig.get("keyAlias").asString().get();
-            char[] password = signerConfig.get("password").asString().get().toCharArray();
-            String algorithm = signerConfig.get("algorithm").asString().get();
-            metadataSigner = new MetadataSigner(keystoreFormat, keystore, keyAlias, password, algorithm);
-            put(MetadataSigner.class, metadataSigner);
-        }
-        MetadataSignatureVerifier metadataSignatureVerifier;
-        {
-            Config signerConfig = config.get("metadatads.verifier");
-            String keystoreFormat = signerConfig.get("format").asString().get();
-            String keystore = signerConfig.get("keystore").asString().get();
-            String keyAlias = signerConfig.get("keyAlias").asString().get();
-            char[] password = signerConfig.get("password").asString().get().toCharArray();
-            String algorithm = signerConfig.get("algorithm").asString().get();
-            metadataSignatureVerifier = new MetadataSignatureVerifier(keystoreFormat, keystore, keyAlias, password, algorithm);
-            put(MetadataSignatureVerifier.class, metadataSignatureVerifier);
-        }
-        DataAccessGrpcService dataAccessGrpcService = new DataAccessGrpcService(dataAccessService, authServiceGrpc, catalogServiceGrpc, metadataSigner, metadataSignatureVerifier);
+        Config signerConfig = config.get("metadatads");
+        String keystoreFormat = signerConfig.get("format").asString().get();
+        String keystore = signerConfig.get("keystore").asString().get();
+        String keyAlias = signerConfig.get("keyAlias").asString().get();
+        char[] password = signerConfig.get("password").asString().get().toCharArray();
+        String algorithm = signerConfig.get("algorithm").asString().get();
+
+        MetadataSigner metadataSigner = new MetadataSigner(keystoreFormat, keystore, keyAlias, password, algorithm);
+        put(MetadataSigner.class, metadataSigner);
+
+        DataAccessGrpcService dataAccessGrpcService = new DataAccessGrpcService(dataAccessService, authServiceGrpc, catalogServiceGrpc, metadataSigner);
         put(DataAccessGrpcService.class, dataAccessGrpcService);
 
         GrpcServer grpcServer = GrpcServer.create(

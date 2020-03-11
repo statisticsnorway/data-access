@@ -20,7 +20,6 @@ import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
-import no.ssb.dapla.data.access.metadata.MetadataSignatureVerifier;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
 import no.ssb.dapla.data.access.protobuf.ReadAccessTokenRequest;
@@ -59,16 +58,14 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
     private final CatalogServiceFutureStub catalogServiceFutureStub;
 
     private final MetadataSigner metadataSigner;
-    private final MetadataSignatureVerifier metadataSignatureVerifier;
 
     public DataAccessGrpcService(DataAccessService dataAccessService,
                                  AuthServiceFutureStub authServiceFutureStub,
-                                 CatalogServiceFutureStub catalogServiceFutureStub, MetadataSigner metadataSigner, MetadataSignatureVerifier metadataSignatureVerifier) {
+                                 CatalogServiceFutureStub catalogServiceFutureStub, MetadataSigner metadataSigner) {
         this.dataAccessService = dataAccessService;
         this.authServiceFutureStub = authServiceFutureStub;
         this.catalogServiceFutureStub = catalogServiceFutureStub;
         this.metadataSigner = metadataSigner;
-        this.metadataSignatureVerifier = metadataSignatureVerifier;
     }
 
     @Override
@@ -106,6 +103,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             responseObserver.onCompleted();
                             span.finish();
                         } catch (RuntimeException | Error e) {
+                            logError(span, e, "unexpected error");
+                            LOG.error("unexpected error", e);
                             responseObserver.onError(e);
                         }
                     }
@@ -177,6 +176,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                         }
                                     });
                         } catch (RuntimeException | Error e) {
+                            logError(span, e, "unexpected error");
+                            LOG.error("unexpected error", e);
                             responseObserver.onError(e);
                         }
                     }
@@ -309,6 +310,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             responseObserver.onCompleted();
                             span.finish();
                         } catch (RuntimeException | Error e) {
+                            logError(span, e, "unexpected error");
+                            LOG.error("unexpected error", e);
                             responseObserver.onError(e);
                         }
                     });
@@ -335,7 +338,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             String userId = decodedJWT.getClaim("preferred_username").asString();
             //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
-            boolean valid = metadataSignatureVerifier.verify(request.getMetadataJson().toByteArray(), request.getMetadataSignature().toByteArray());
+            boolean valid = metadataSigner.verify(request.getMetadataJson().toByteArray(), request.getMetadataSignature().toByteArray());
             if (!valid) {
                 try {
                     span.log("invalid metadata signature");
@@ -390,6 +393,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                         }
                                     });
                         } catch (RuntimeException | Error e) {
+                            logError(span, e, "unexpected error");
+                            LOG.error("unexpected error", e);
                             responseObserver.onError(e);
                         }
                     });
