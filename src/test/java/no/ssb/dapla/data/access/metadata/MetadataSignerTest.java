@@ -19,7 +19,7 @@ public class MetadataSignerTest {
 
     //@Test
     public void thatMetadataSignWorks() throws IOException {
-        signDatasets("../localstack/data/datastore",
+        signDatasets("../localstack/bin/testdata",
                 "/ske/sirius-person-utkast/2018v19/1583156472183",
                 "/skatt/person/rawdata-2019/1582719098762"
         );
@@ -27,7 +27,7 @@ public class MetadataSignerTest {
 
     //@Test
     public void thatMetadataVerifyWorks() throws IOException {
-        verifyDatasets("../localstack/data/datastore",
+        verifyDatasets("../localstack/bin/testdata",
                 "/ske/sirius-person-utkast/2018v19/1583156472183",
                 "/skatt/person/rawdata-2019/1582719098762"
         );
