@@ -48,7 +48,7 @@ public class DataAccessServiceGrpcTest {
                 .setSnapshot(2)
                 .build());
         assertNotNull(response);
-        assertThat(response.getParentUri()).isEqualTo("gs://root");
+        assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
         assertThat(response.getVersion()).isEqualTo("1");
     }
 
@@ -62,7 +62,8 @@ public class DataAccessServiceGrpcTest {
                 .setPath("/path/to/dataset")
                 .build());
         assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
+        assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(response.getAccessToken()).isEqualTo("dev-datalager-store-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
@@ -96,7 +97,7 @@ public class DataAccessServiceGrpcTest {
                 .setMetadataSignature(writeLocationResponse.getMetadataSignature())
                 .build());
 
-        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
+        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("dev-datalager-store-write-token");
         assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 

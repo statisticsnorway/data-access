@@ -28,12 +28,11 @@ import java.io.IOException;
 
 public class GoogleCredentialsFactory {
 
-    private static final String SERVICE_ACCOUNT_KEY_FILE = "DATA_ACCESS_SERVICE_ACCOUNT_KEY_FILE";
     private static final Logger LOG = LoggerFactory.getLogger(GoogleCredentialsFactory.class);
 
-    public static GoogleCredentialsDetails createCredentialsDetails(boolean useComputeEngineFallback, String... scopes) {
+    public static GoogleCredentialsDetails createCredentialsDetails(boolean useComputeEngineFallback, String jsonPath,
+                                                                    String... scopes) {
         try {
-            String jsonPath = System.getenv().get(SERVICE_ACCOUNT_KEY_FILE);
             GoogleCredentials credentials;
             String email;
             if (jsonPath != null) {

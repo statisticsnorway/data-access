@@ -44,7 +44,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 ReadLocationResponse.class, headers).body();
         assertNotNull(response);
-        assertThat(response.getParentUri()).isEqualTo("gs://root");
+        assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
         assertThat(response.getVersion()).isEqualTo("1");
     }
 
@@ -55,7 +55,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 ReadAccessTokenResponse.class, headers).body();
         assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
+        assertThat(response.getAccessToken()).isEqualTo("dev-datalager-store-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
@@ -86,7 +86,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 WriteAccessTokenResponse.class, headers).body();
 
-        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
+        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("dev-datalager-store-write-token");
         assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 }

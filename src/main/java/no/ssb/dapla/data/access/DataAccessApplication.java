@@ -3,6 +3,7 @@ package no.ssb.dapla.data.access;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
+import io.helidon.config.ConfigSources;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
 import io.helidon.grpc.server.GrpcServerConfiguration;
@@ -63,9 +64,9 @@ public class DataAccessApplication extends DefaultHelidonApplication {
 
         DataAccessService dataAccessService;
         if (config.get("data-access.provider").asString().get().equals(GoogleDataAccessService.class.getName())) {
-            dataAccessService = new GoogleDataAccessService();
+            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("service-accounts.file").asString().get()));
         } else {
-            dataAccessService = new LocalstackDataAccessService();
+            dataAccessService = new LocalstackDataAccessService(loadConfig(config.get("service-accounts.file").asString().get()));
         }
 
         Config signerConfig = config.get("metadatads");
@@ -119,6 +120,7 @@ public class DataAccessApplication extends DefaultHelidonApplication {
                                         .map(GrpcServer::port)
                                         .orElseThrow())
                                 .usePlaintext()
+                                .intercept()
                                 .build(),
                         dataAccessGrpcService
                 )).build();
@@ -130,6 +132,10 @@ public class DataAccessApplication extends DefaultHelidonApplication {
                         .build(),
                 routing);
         put(WebServer.class, webServer);
+    }
+
+    private Config loadConfig(String path) {
+        return Config.builder().sources(ConfigSources.environmentVariables(), ConfigSources.file(path)).build();
     }
 
 }

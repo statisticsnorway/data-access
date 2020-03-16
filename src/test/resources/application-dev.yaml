@@ -13,3 +13,6 @@ metadatads:
   keyAlias: dataAccessKeyPair
   password: changeit
   algorithm: SHA256withRSA
+
+service-accounts:
+  file: src/test/resources/service-accounts.yaml
