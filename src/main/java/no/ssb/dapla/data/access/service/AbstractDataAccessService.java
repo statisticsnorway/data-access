@@ -67,7 +67,7 @@ public abstract class AbstractDataAccessService implements DataAccessService {
             return false;
         }
 
-        if (criterionNode.get("includes").exists() && criterionNode.get("includes").asList(String.class).get().stream().anyMatch(v -> matcher.apply(v))) {
+        if (!criterionNode.get("includes").exists() || criterionNode.get("includes").asList(String.class).get().stream().anyMatch(v -> matcher.apply(v))) {
             return true;
         }
 

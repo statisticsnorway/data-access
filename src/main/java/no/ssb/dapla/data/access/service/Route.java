@@ -16,7 +16,7 @@ public class Route {
                         uri.get("host").asString().get() +
                         uri.get("path-prefix").asString().get()
                 )).get();
-        this.auth = config.get("target").get("auth").asMap().get();
+        this.auth = config.get("target").get("auth").detach().asMap().get();
     }
 
     public URI getUri() {
