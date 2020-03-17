@@ -26,7 +26,7 @@ public class LocalstackDataAccessService extends AbstractDataAccessService {
 
     @Override
     public CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
-        URI location = getLocation(valuation, state);
+        URI location = getLocation(path, valuation, state);
         return CompletableFuture.completedFuture(
                 new AccessToken(
                         location.getAuthority() + "-write-token",

@@ -77,7 +77,7 @@ class DataAccessServiceHttpTest {
         assertNotNull(writeLocationResponse);
         assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
         DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
-        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store/datastore");
         assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
 
         WriteAccessTokenResponse writeAccessTokenResponse = testClient.post("/rpc/DataAccessService/writeAccessToken", WriteAccessTokenRequest.newBuilder()

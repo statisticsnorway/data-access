@@ -81,15 +81,15 @@ public class DataAccessServiceGrpcTest {
                                 .setVersion(System.currentTimeMillis())
                                 .build())
                         .setType(DatasetMeta.Type.BOUNDED)
-                        .setValuation(DatasetMeta.Valuation.INTERNAL)
-                        .setState(DatasetMeta.DatasetState.INPUT)
+                        .setValuation(DatasetMeta.Valuation.SENSITIVE)
+                        .setState(DatasetMeta.DatasetState.RAW)
                         .build()))
                 .build());
 
         assertNotNull(writeLocationResponse);
         assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
         DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
-        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store/datastore");
         assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
 
         WriteAccessTokenResponse writeAccessTokenResponse = client.writeAccessToken(WriteAccessTokenRequest.newBuilder()

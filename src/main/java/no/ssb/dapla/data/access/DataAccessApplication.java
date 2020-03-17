@@ -64,9 +64,9 @@ public class DataAccessApplication extends DefaultHelidonApplication {
 
         DataAccessService dataAccessService;
         if (config.get("data-access.provider").asString().get().equals(GoogleDataAccessService.class.getName())) {
-            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("service-accounts.file").asString().get()));
+            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("routing.file").asString().get()));
         } else {
-            dataAccessService = new LocalstackDataAccessService(loadConfig(config.get("service-accounts.file").asString().get()));
+            dataAccessService = new LocalstackDataAccessService(loadConfig(config.get("routing.file").asString().get()));
         }
 
         Config signerConfig = config.get("metadatads");

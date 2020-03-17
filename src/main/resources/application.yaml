@@ -43,5 +43,5 @@ metadatads:
   password: changeit
   algorithm: SHA256withRSA
 
-service-accounts:
-  file: conf/service-accounts.yaml
+routing:
+  file: conf/routing.json

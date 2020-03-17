@@ -42,7 +42,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
         CompletableFuture<AccessToken> future = new CompletableFuture<>();
         try {
             span.log(String.format("User %s is asking to write location %s", userId, path));
-            URI location = getLocation(valuation, state);
+            URI location = getLocation(path, valuation, state);
             GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
                     getToken(location.getAuthority()), WRITE_SCOPE);
             AccessToken accessToken = new AccessToken(
