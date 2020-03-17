@@ -6,7 +6,6 @@ import no.ssb.dapla.dataset.api.DatasetMeta;
 
 import java.net.URI;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -31,18 +30,22 @@ public abstract class AbstractDataAccessService implements DataAccessService {
     public CompletableFuture<URI> getWriteLocation(Span span, String userId, String path,
                                                       DatasetMeta.Valuation valuation,
                                                       DatasetMeta.DatasetState state) {
-        return CompletableFuture.completedFuture(getLocation(path, valuation, state));
+        return CompletableFuture.completedFuture(getRoute(path, valuation, state).getUri());
     }
 
-    URI getLocation(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
-        return route(path, valuation, state).get().get("target").get("uri").as(uri ->
-                URI.create(uri.get("scheme").asString().get() + "://" + uri.get("host").asString().get() + uri.get("path-prefix").asString().get())).get();
+    Route getRoute(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
+        return route(path, valuation, state).get();
     }
 
-    private Optional<Config> route(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
+    String getToken(String location) {
+        //TODO: Find target with the given location and return auth
+        return "";
+    }
+
+    private Optional<Route> route(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
         return routing.asNodeList().orElseThrow(() ->
                     new RuntimeException("Route configuration is missing")).stream().filter(route ->
-                matchRoutingEntry(path, valuation, state, route.get("source"))).findFirst();
+                matchRoutingEntry(path, valuation, state, route.get("source"))).findFirst().map(Route::new);
     }
 
     private boolean matchRoutingEntry(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state,
@@ -69,10 +72,6 @@ public abstract class AbstractDataAccessService implements DataAccessService {
         }
 
         return false; // non-empty include set, but no matches
-    }
-
-    String getToken(String location) {
-        return "";
     }
 
 }

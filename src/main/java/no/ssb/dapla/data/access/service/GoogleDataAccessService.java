@@ -41,14 +41,14 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
     public CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
         CompletableFuture<AccessToken> future = new CompletableFuture<>();
         try {
-            span.log(String.format("User %s is asking to write location %s", userId, path));
-            URI location = getLocation(path, valuation, state);
+            span.log(String.format("User %s is asking to write path %s", userId, path));
+            Route route = getRoute(path, valuation, state);
             GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
-                    getToken(location.getAuthority()), WRITE_SCOPE);
+                    route.getAuth().get("write"), WRITE_SCOPE);
             AccessToken accessToken = new AccessToken(
                     credential.getAccessToken(),
                     credential.getExpirationTime(),
-                    location.toString()
+                    route.toString()
             );
             future.complete(accessToken);
         } catch (RuntimeException | Error e) {
