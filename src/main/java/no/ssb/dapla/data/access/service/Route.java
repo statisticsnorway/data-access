@@ -3,6 +3,7 @@ package no.ssb.dapla.data.access.service;
 import io.helidon.config.Config;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 
 public class Route {
@@ -16,7 +17,7 @@ public class Route {
                         uri.get("host").asString().get() +
                         uri.get("path-prefix").asString().get()
                 )).get();
-        this.auth = config.get("target").get("auth").detach().asMap().get();
+        this.auth = config.get("target").get("auth").detach().asMap().orElse(new HashMap<>());
     }
 
     public URI getUri() {

@@ -35,7 +35,9 @@ public class AbstractDataAccessServiceTest {
     @Test
     void testTempPath() {
         Route route = sut.getRoute("/tmp/gunnar", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
-        assertThat(route.getAuth().get("write")).isEqualTo("tmp-write.json");
+        // Empty auth should be allowed (in reality only used for gcs)
+        assertThat(route.getAuth()).isEmpty();
+        assertThat(route.getUri().toString()).isEqualTo("file://localhost/data/datastore/tmp");
     }
 
     @Test

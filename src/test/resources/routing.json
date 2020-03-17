@@ -83,10 +83,6 @@
           "scheme": "file",
           "host": "localhost",
           "path-prefix": "/data/datastore/tmp"
-        },
-        "auth": {
-          "read": "tmp-read.json",
-          "write": "tmp-write.json"
         }
       }
     },
