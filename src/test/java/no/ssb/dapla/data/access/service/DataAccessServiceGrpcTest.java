@@ -63,7 +63,9 @@ public class DataAccessServiceGrpcTest {
                 .build());
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
-        assertThat(response.getAccessToken()).isEqualTo("dev-datalager-store-read-token");
+        // LocalstackDataAccessService doesn't actually generate an access token
+        // it just appends 'read-token' to the resolved key file
+        assertThat(response.getAccessToken()).isEqualTo("dev-read.json-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 

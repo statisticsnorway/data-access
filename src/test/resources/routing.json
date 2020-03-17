@@ -105,8 +105,8 @@
           "path-prefix": "/datastore"
         },
         "auth": {
-          "read": "tmp-read.json",
-          "write": "tmp-write.json"
+          "read": "dev-read.json",
+          "write": "dev-write.json"
         }
       }
     },

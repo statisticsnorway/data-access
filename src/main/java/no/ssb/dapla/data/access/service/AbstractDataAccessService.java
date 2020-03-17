@@ -33,13 +33,29 @@ public abstract class AbstractDataAccessService implements DataAccessService {
         return CompletableFuture.completedFuture(getRoute(path, valuation, state).getUri());
     }
 
+    /**
+     * Find the first matching route based on the given source parameters
+     * @param path
+     * @param valuation
+     * @param state
+     * @return the first matching route
+     */
     Route getRoute(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
         return route(path, valuation, state).get();
     }
 
-    String getToken(String location) {
-        //TODO: Find target with the given location and return auth
-        return "";
+    /**
+     * Find the first matching route that has resolves to the following target scheme and host
+     * @param scheme
+     * @param host
+     * @return the first matching route
+     */
+    Route getRoute(String scheme, String host) {
+        return routing.asNodeList().orElseThrow(() ->
+                new RuntimeException("Route configuration is missing")).stream().filter(route ->
+                    route.get("target").get("uri").get("scheme").asString().get().equals(scheme) &&
+                    route.get("target").get("uri").get("host").asString().get().equals(host)
+        ).findFirst().map(Route::new).get();
     }
 
     private Optional<Route> route(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
@@ -66,11 +82,9 @@ public abstract class AbstractDataAccessService implements DataAccessService {
         if (criterionNode.get("excludes").asList(String.class).orElseGet(Collections::emptyList).stream().anyMatch(v -> matcher.apply(v))) {
             return false;
         }
-
         if (!criterionNode.get("includes").exists() || criterionNode.get("includes").asList(String.class).get().stream().anyMatch(v -> matcher.apply(v))) {
             return true;
         }
-
         return false; // non-empty include set, but no matches
     }
 

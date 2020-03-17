@@ -14,12 +14,14 @@ public class LocalstackDataAccessService extends AbstractDataAccessService {
     }
 
     @Override
-    public CompletableFuture<AccessToken> getReadAccessToken(Span span, String userId, String parentUri) {
+    public CompletableFuture<AccessToken> getReadAccessToken(Span span, String userId, String parentUriString) {
+        final URI parentUri = URI.create(parentUriString);
+        String route = getRoute(parentUri.getScheme(), parentUri.getAuthority()).getAuth().get("read");
         return CompletableFuture.completedFuture(
                 new AccessToken(
-                        URI.create(parentUri).getAuthority() + "-read-token",
+                        route + "-read-token",
                         System.currentTimeMillis() + 1000 * 60 * 60,
-                        parentUri
+                        parentUriString
                 )
         );
     }

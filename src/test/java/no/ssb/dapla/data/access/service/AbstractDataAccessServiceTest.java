@@ -43,4 +43,12 @@ public class AbstractDataAccessServiceTest {
         Route route = sut.getRoute("/catch-me-please", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
         assertThat(route.getAuth().get("read")).isEqualTo("catch-all-read.json");
     }
+
+    @Test
+    void testGetTokenByExistingRoute() {
+        Route route = sut.getRoute("gs", "dev-datalager-store");
+        assertThat(route.getAuth().get("read")).isEqualTo("dev-read.json");
+    }
+
+
 }

@@ -19,16 +19,17 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
     }
 
     @Override
-    public CompletableFuture<AccessToken> getReadAccessToken(Span span, String userId, String parentUri) {
+    public CompletableFuture<AccessToken> getReadAccessToken(Span span, String userId, String parentUriString) {
         CompletableFuture<AccessToken> future = new CompletableFuture<>();
         try {
-            span.log(String.format("User %s is asking to read from %s", userId, parentUri));
-            final String authority = URI.create(parentUri).getAuthority();
-            GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true, getToken(authority), READ_SCOPE);
+            span.log(String.format("User %s is asking to read from %s", userId, parentUriString));
+            final URI parentUri = URI.create(parentUriString);
+            GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
+                    getRoute(parentUri.getScheme(), parentUri.getAuthority()).getAuth().get("read"), READ_SCOPE);
             AccessToken accessToken = new AccessToken(
                     credential.getAccessToken(),
                     credential.getExpirationTime(),
-                    parentUri
+                    parentUriString
             );
             future.complete(accessToken);
         } catch (RuntimeException | Error e) {
