@@ -55,7 +55,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 ReadAccessTokenResponse.class, headers).body();
         assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("dev-datalager-store-read-token");
+        assertThat(response.getAccessToken()).isEqualTo("dev-read.json-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
