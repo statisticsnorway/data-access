@@ -23,13 +23,77 @@ public class RoutingTest {
     }
 
     @Test
-    public void test1() {
+    public void testIncludeBasedValuation() {
         assertEquals("/data/datastore/sensitive-rawdata", routing.route(DatasetMeta.newBuilder()
                 .setId(DatasetId.newBuilder()
                         .setPath("/raw/sirius/junit/test1")
                         .setVersion(System.currentTimeMillis())
                         .build())
                 .setValuation(DatasetMeta.Valuation.SENSITIVE)
+                .setState(DatasetMeta.DatasetState.RAW)
+                .build())
+                .map(target -> target.get("uri"))
+                .map(url -> url.get("path-prefix"))
+                .map(JsonNode::textValue)
+                .orElseThrow());
+    }
+
+    @Test
+    public void testExcludeBasedValuation() {
+        assertEquals("/data/datastore/not-so-sensitive-rawdata", routing.route(DatasetMeta.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/raw/sirius/junit/test2")
+                        .setVersion(System.currentTimeMillis())
+                        .build())
+                .setValuation(DatasetMeta.Valuation.INTERNAL)
+                .setState(DatasetMeta.DatasetState.RAW)
+                .build())
+                .map(target -> target.get("uri"))
+                .map(url -> url.get("path-prefix"))
+                .map(JsonNode::textValue)
+                .orElseThrow());
+    }
+
+    @Test
+    public void testSpecificPathAllValuationsAndStates() {
+        assertEquals("/data/datastore/tmp", routing.route(DatasetMeta.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/tmp/junit/test3")
+                        .setVersion(System.currentTimeMillis())
+                        .build())
+                .setValuation(DatasetMeta.Valuation.INTERNAL)
+                .setState(DatasetMeta.DatasetState.RAW)
+                .build())
+                .map(target -> target.get("uri"))
+                .map(url -> url.get("path-prefix"))
+                .map(JsonNode::textValue)
+                .orElseThrow());
+    }
+
+    @Test
+    public void testCatchAll() {
+        assertEquals("/data/datastore/catch-all", routing.route(DatasetMeta.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/anywhere/junit/test4")
+                        .setVersion(System.currentTimeMillis())
+                        .build())
+                .setValuation(DatasetMeta.Valuation.INTERNAL)
+                .setState(DatasetMeta.DatasetState.RAW)
+                .build())
+                .map(target -> target.get("uri"))
+                .map(url -> url.get("path-prefix"))
+                .map(JsonNode::textValue)
+                .orElseThrow());
+    }
+
+    @Test
+    public void testExcludeBasedCatchAll() {
+        assertEquals("/data/datastore/catch-all", routing.route(DatasetMeta.newBuilder()
+                .setId(DatasetId.newBuilder()
+                        .setPath("/raw/skatt/weird-special/junit/test5")
+                        .setVersion(System.currentTimeMillis())
+                        .build())
+                .setValuation(DatasetMeta.Valuation.INTERNAL)
                 .setState(DatasetMeta.DatasetState.RAW)
                 .build())
                 .map(target -> target.get("uri"))
