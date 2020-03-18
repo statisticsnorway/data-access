@@ -13,3 +13,6 @@ metadatads:
   keyAlias: dataAccessKeyPair
   password: changeit
   algorithm: SHA256withRSA
+
+routing:
+  file: src/test/resources/routing.json
