@@ -26,7 +26,7 @@
       "target": {
         "uri": {
           "scheme": "file",
-          "host": "localhost",
+          "host": "",
           "path-prefix": "/data/datastore/sensitive-rawdata"
         },
         "auth": {
@@ -61,7 +61,7 @@
       "target": {
         "uri": {
           "scheme": "file",
-          "host": "localhost",
+          "host": "",
           "path-prefix": "/data/datastore/not-so-sensitive-rawdata"
         },
         "auth": {
@@ -81,7 +81,7 @@
       "target": {
         "uri": {
           "scheme": "file",
-          "host": "localhost",
+          "host": "",
           "path-prefix": "/data/datastore/tmp"
         }
       }
@@ -112,7 +112,7 @@
       "target": {
         "uri": {
           "scheme": "file",
-          "host": "localhost",
+          "host": "",
           "path-prefix": "/data/datastore/catch-all"
         },
         "auth": {

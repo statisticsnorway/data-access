@@ -135,7 +135,7 @@ public class DataAccessApplication extends DefaultHelidonApplication {
     }
 
     private Config loadConfig(String path) {
-        return Config.builder().sources(ConfigSources.environmentVariables(), ConfigSources.file(path)).build();
+        return Config.builder().disableEnvironmentVariablesSource().sources(ConfigSources.file(path)).build();
     }
 
 }

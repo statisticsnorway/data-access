@@ -37,7 +37,7 @@ public class AbstractDataAccessServiceTest {
         Route route = sut.getRoute("/tmp/gunnar", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
         // Empty auth should be allowed (in reality only used for gcs)
         assertThat(route.getAuth()).isEmpty();
-        assertThat(route.getUri().toString()).isEqualTo("file://localhost/data/datastore/tmp");
+        assertThat(route.getUri().toString()).isEqualTo("file:///data/datastore/tmp");
     }
 
     @Test
