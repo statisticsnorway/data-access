@@ -6,6 +6,7 @@ import no.ssb.dapla.dataset.api.DatasetMeta;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -41,7 +42,9 @@ public abstract class AbstractDataAccessService implements DataAccessService {
      * @return the first matching route
      */
     Route getRoute(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
-        return route(path, valuation, state).get();
+        return route(path, valuation, state).orElseThrow(() ->
+                new NoSuchElementException("Could not find route for path: " + path + " with valuation " + valuation +
+                " and state " + state));
     }
 
     /**
@@ -55,7 +58,8 @@ public abstract class AbstractDataAccessService implements DataAccessService {
                 new RuntimeException("Route configuration is missing")).stream().filter(route ->
                     route.get("target").get("uri").get("scheme").asString().get().equals(scheme) &&
                     route.get("target").get("uri").get("host").asString().get().equals(host)
-        ).findFirst().map(Route::new).get();
+        ).findFirst().map(Route::new).orElseThrow(() ->
+                new NoSuchElementException("Could not find target: " + scheme + "://" + host));
     }
 
     private Optional<Route> route(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {

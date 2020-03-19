@@ -5,7 +5,10 @@ import io.helidon.config.ConfigSources;
 import no.ssb.dapla.dataset.api.DatasetMeta;
 import org.junit.jupiter.api.Test;
 
+import java.util.NoSuchElementException;
+
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class AbstractDataAccessServiceTest {
 
@@ -50,6 +53,13 @@ public class AbstractDataAccessServiceTest {
     void testGetTokenByExistingRoute() {
         Route route = sut.getRoute("gs", "dev-datalager-store");
         assertThat(route.getAuth().get("read")).isEqualTo("dev-read.json");
+    }
+
+    @Test
+    void testGetTokenByExistingRouteExceptionHandling() {
+        NoSuchElementException exception = assertThrows(NoSuchElementException.class,
+                () -> sut.getRoute("gs", "not-found"), "Expect access denied exception");
+        assertEquals(exception.getMessage(), "Could not find target: gs://not-found");
     }
 
 
