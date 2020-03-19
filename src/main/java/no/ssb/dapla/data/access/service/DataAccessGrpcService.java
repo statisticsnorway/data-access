@@ -40,6 +40,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -147,9 +148,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             }
 
                             CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getReadAccessToken(
-                                    span, userId, request.getPath(),
-                                    DatasetMeta.Valuation.valueOf(getDatasetResponse.getDataset().getValuation().name()),
-                                    DatasetMeta.DatasetState.valueOf(getDatasetResponse.getDataset().getState().name()));
+                                    span, userId, getDatasetResponse.getDataset().getParentUri());
 
                             accessTokenFuture
                                     .orTimeout(10, TimeUnit.SECONDS)
@@ -288,20 +287,42 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                         try {
                             Tracing.restoreTracingContext(tracerAndSpan);
                             if (accessCheckResponse.getAllowed()) {
-                                DatasetMeta allowedMetadata = DatasetMeta.newBuilder()
-                                        .mergeFrom(untrustedMetadata)
-                                        .setParentUri(System.getenv().get("DATA_ACCESS_SERVICE_DEFAULT_LOCATION")) //TODO: Implement routing based on path, valuation, and state
-                                        .setCreatedBy(userId)
-                                        .build();
 
-                                ByteString validMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadata));
-                                ByteString signature = ByteString.copyFrom(metadataSigner.sign(validMetadataJson.toByteArray()));
+                                CompletableFuture<URI> accessTokenFuture = dataAccessService.getWriteLocation(
+                                        span, userId, untrustedMetadata.getId().getPath(), untrustedMetadata.getValuation(), untrustedMetadata.getState()
+                                );
 
-                                responseObserver.onNext(traceOutputMessage(span, WriteLocationResponse.newBuilder()
-                                        .setAccessAllowed(true)
-                                        .setValidMetadataJson(validMetadataJson)
-                                        .setMetadataSignature(signature)
-                                        .build()));
+                                accessTokenFuture
+                                        .orTimeout(10, TimeUnit.SECONDS)
+                                        .thenAccept(location -> {
+                                            Tracing.restoreTracingContext(tracerAndSpan);
+                                            DatasetMeta allowedMetadata = DatasetMeta.newBuilder()
+                                                    .mergeFrom(untrustedMetadata)
+                                                    .setParentUri(location.toString())
+                                                    .setCreatedBy(userId)
+                                                    .build();
+
+                                            ByteString validMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadata));
+                                            ByteString signature = ByteString.copyFrom(metadataSigner.sign(validMetadataJson.toByteArray()));
+
+                                            responseObserver.onNext(traceOutputMessage(span, WriteLocationResponse.newBuilder()
+                                                    .setAccessAllowed(true)
+                                                    .setValidMetadataJson(validMetadataJson)
+                                                    .setMetadataSignature(signature)
+                                                    .build()));
+                                        })
+                                        .exceptionally(throwable -> {
+                                            try {
+                                                Tracing.restoreTracingContext(tracerAndSpan);
+                                                logError(span, throwable, "error in getAccessToken()");
+                                                LOG.error(String.format("getAccessToken()"), throwable);
+                                                responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                                                return null;
+                                            } finally {
+                                                span.finish();
+                                            }
+                                        });
+
                             } else {
                                 responseObserver.onNext(traceOutputMessage(span, WriteLocationResponse.newBuilder()
                                         .setAccessAllowed(false)

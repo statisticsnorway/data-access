@@ -42,3 +42,6 @@ metadatads:
   keyAlias: dataAccessKeyPair
   password: changeit
   algorithm: SHA256withRSA
+
+routing:
+  file: conf/routing.json

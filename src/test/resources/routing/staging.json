@@ -1,0 +1,135 @@
+{
+  "routing": [
+
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/raw/skatt/",
+            "/raw/sirius/",
+            "/raw/ske/"
+          ]
+        },
+        "states": {
+          "includes": [
+            "RAW"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "gs",
+          "host": "staging-rawdata-store",
+          "path-prefix": "/datastore"
+        },
+        "auth": {
+          "read": "/gcloud/staging-bip-rawdata-store.json",
+          "write": "/gcloud/staging-bip-rawdata-store.json"
+        }
+      }
+    },
+
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/skatt/",
+            "/sirius/",
+            "/ske/"
+          ]
+        },
+        "valuations": {
+          "includes": [
+            "SENSITIVE"
+          ]
+        },
+        "states": {
+          "excludes": [
+            "RAW"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "gs",
+          "host": "ssb-data-staging",
+          "path-prefix": "/datastore/sensitive"
+        },
+        "auth": {
+          "read": "/gcloud/staging-bip-ssb-data-store.json",
+          "write": "/gcloud/staging-bip-ssb-data-store.json"
+        }
+      }
+    },
+
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/skatt/",
+            "/sirius/",
+            "/ske/"
+          ]
+        },
+        "valuations": {
+          "excludes": [
+            "SENSITIVE"
+          ]
+        },
+        "states": {
+          "excludes": [
+            "RAW"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "gs",
+          "host": "ssb-data-staging",
+          "path-prefix": "/datastore/work"
+        },
+        "auth": {
+          "read": "/gcloud/staging-bip-ssb-data-store.json",
+          "write": "/gcloud/staging-bip-ssb-data-store.json"
+        }
+      }
+    },
+
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/tmp/"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "gs",
+          "host": "ssb-data-staging",
+          "path-prefix": "/datastore/tmp"
+        },
+        "auth": {
+          "read": "/gcloud/staging-bip-ssb-data-store.json",
+          "write": "/gcloud/staging-bip-ssb-data-store.json"
+        }
+      }
+    },
+
+    {
+      "source": {
+      },
+      "target": {
+        "uri": {
+          "scheme": "gs",
+          "host": "ssb-data-staging",
+          "path-prefix": "/datastore/other"
+        },
+        "auth": {
+          "read": "/gcloud/staging-bip-ssb-data-store.json",
+          "write": "/gcloud/staging-bip-ssb-data-store.json"
+        }
+      }
+    }
+  ]
+}

@@ -28,7 +28,7 @@ public class DataAccessGrpcMockRegistry extends GrpcMockRegistry {
                 Dataset.newBuilder()
                         .setState(Dataset.DatasetState.OUTPUT)
                         .setValuation(Dataset.Valuation.OPEN)
-                        .setParentUri("gs://root")
+                        .setParentUri("gs://dev-datalager-store")
                         .setId(
                                 DatasetId.newBuilder()
                                         .setPath("/path/to/dataset")

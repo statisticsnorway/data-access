@@ -44,7 +44,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 ReadLocationResponse.class, headers).body();
         assertNotNull(response);
-        assertThat(response.getParentUri()).isEqualTo("gs://root");
+        assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
         assertThat(response.getVersion()).isEqualTo("1");
     }
 
@@ -55,7 +55,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 ReadAccessTokenResponse.class, headers).body();
         assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
+        assertThat(response.getAccessToken()).isEqualTo("dev-read.json-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
@@ -77,7 +77,7 @@ class DataAccessServiceHttpTest {
         assertNotNull(writeLocationResponse);
         assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
         DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
-        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store/datastore");
         assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
 
         WriteAccessTokenResponse writeAccessTokenResponse = testClient.post("/rpc/DataAccessService/writeAccessToken", WriteAccessTokenRequest.newBuilder()
@@ -86,7 +86,7 @@ class DataAccessServiceHttpTest {
                         .build(),
                 WriteAccessTokenResponse.class, headers).body();
 
-        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
+        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("dev-datalager-store-write-token");
         assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 }

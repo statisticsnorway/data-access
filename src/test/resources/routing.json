@@ -1,0 +1,125 @@
+{
+  "routing": [
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/raw/skatt/",
+            "/raw/sirius/",
+            "/raw/ske/"
+          ],
+          "excludes": [
+            "/raw/skatt/weird-special"
+          ]
+        },
+        "valuations": {
+          "includes": [
+            "SENSITIVE"
+          ]
+        },
+        "states": {
+          "includes": [
+            "RAW"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "file",
+          "host": "",
+          "path-prefix": "/data/datastore/sensitive-rawdata"
+        },
+        "auth": {
+          "read": "sensitive-rawdata-skatt-read.json",
+          "write": "sensitive-rawdata-skatt-write.json"
+        }
+      }
+    },
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/raw/skatt/",
+            "/raw/sirius/",
+            "/raw/ske/"
+          ],
+          "excludes": [
+            "/raw/skatt/weird-special"
+          ]
+        },
+        "valuations": {
+          "excludes": [
+            "SENSITIVE"
+          ]
+        },
+        "states": {
+          "includes": [
+            "RAW"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "file",
+          "host": "",
+          "path-prefix": "/data/datastore/not-so-sensitive-rawdata"
+        },
+        "auth": {
+          "read": "not-so-sensitive-rawdata-skatt-read.json",
+          "write": "not-so-sensitive-rawdata-skatt-write.json"
+        }
+      }
+    },
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/tmp/"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "file",
+          "host": "",
+          "path-prefix": "/data/datastore/tmp"
+        }
+      }
+    },
+    {
+      "source": {
+        "paths": {
+          "includes": [
+            "/junit/"
+          ]
+        }
+      },
+      "target": {
+        "uri": {
+          "scheme": "gs",
+          "host": "dev-datalager-store",
+          "path-prefix": "/datastore"
+        },
+        "auth": {
+          "read": "dev-read.json",
+          "write": "dev-write.json"
+        }
+      }
+    },
+    {
+      "source": {
+      },
+      "target": {
+        "uri": {
+          "scheme": "file",
+          "host": "",
+          "path-prefix": "/data/datastore/catch-all"
+        },
+        "auth": {
+          "read": "catch-all-read.json",
+          "write": "catch-all-write.json"
+        }
+      }
+    }
+  ]
+}

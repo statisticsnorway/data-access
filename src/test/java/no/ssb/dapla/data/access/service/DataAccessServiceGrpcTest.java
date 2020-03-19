@@ -48,7 +48,7 @@ public class DataAccessServiceGrpcTest {
                 .setSnapshot(2)
                 .build());
         assertNotNull(response);
-        assertThat(response.getParentUri()).isEqualTo("gs://root");
+        assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
         assertThat(response.getVersion()).isEqualTo("1");
     }
 
@@ -62,7 +62,10 @@ public class DataAccessServiceGrpcTest {
                 .setPath("/path/to/dataset")
                 .build());
         assertNotNull(response);
-        assertThat(response.getAccessToken()).isEqualTo("localstack-read-token");
+        assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        // LocalstackDataAccessService doesn't actually generate an access token
+        // it just appends 'read-token' to the resolved key file
+        assertThat(response.getAccessToken()).isEqualTo("dev-read.json-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
@@ -80,15 +83,15 @@ public class DataAccessServiceGrpcTest {
                                 .setVersion(System.currentTimeMillis())
                                 .build())
                         .setType(DatasetMeta.Type.BOUNDED)
-                        .setValuation(DatasetMeta.Valuation.INTERNAL)
-                        .setState(DatasetMeta.DatasetState.INPUT)
+                        .setValuation(DatasetMeta.Valuation.SENSITIVE)
+                        .setState(DatasetMeta.DatasetState.RAW)
                         .build()))
                 .build());
 
         assertNotNull(writeLocationResponse);
         assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
         DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
-        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store");
+        assertThat(signedDatasetMeta.getParentUri()).isEqualTo("gs://dev-datalager-store/datastore");
         assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
 
         WriteAccessTokenResponse writeAccessTokenResponse = client.writeAccessToken(WriteAccessTokenRequest.newBuilder()
@@ -96,7 +99,7 @@ public class DataAccessServiceGrpcTest {
                 .setMetadataSignature(writeLocationResponse.getMetadataSignature())
                 .build());
 
-        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("localstack-write-token");
+        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("dev-datalager-store-write-token");
         assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 
