@@ -44,4 +44,4 @@ metadatads:
   algorithm: SHA256withRSA
 
 routing:
-  file: conf/routing.json
+  file: /conf/routing.json
