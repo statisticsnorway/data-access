@@ -12,12 +12,7 @@ import java.util.concurrent.CompletableFuture;
 public class GoogleDataAccessService extends AbstractDataAccessService {
 
     private static final String WRITE_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
-    /*
-      TODO: The GCS-connector (currently) caches the same token regardless of read or write. So we cannot
-       limit the READ token to read_only in case it is cached token is reused for write operations.
-     */
-    //private static final String READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
-    private static final String READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
+    private static final String READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
 
     public GoogleDataAccessService(Config config) {
         super(config);
