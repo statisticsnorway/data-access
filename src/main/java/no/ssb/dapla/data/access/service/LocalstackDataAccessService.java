@@ -2,10 +2,13 @@ package no.ssb.dapla.data.access.service;
 
 import io.helidon.config.Config;
 import io.opentracing.Span;
-import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.dapla.dataset.api.DatasetState;
+import no.ssb.dapla.dataset.api.Valuation;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
+
+import static java.util.Optional.ofNullable;
 
 public class LocalstackDataAccessService extends AbstractDataAccessService {
 
@@ -16,7 +19,7 @@ public class LocalstackDataAccessService extends AbstractDataAccessService {
     @Override
     public CompletableFuture<AccessToken> getReadAccessToken(Span span, String userId, String parentUriString) {
         final URI parentUri = URI.create(parentUriString);
-        String route = getRoute(parentUri.getScheme(), parentUri.getAuthority()).getAuth().get("read");
+        String route = getRoute(parentUri.getScheme(), ofNullable(parentUri.getAuthority()).orElse("")).getAuth().get("read");
         return CompletableFuture.completedFuture(
                 new AccessToken(
                         route + "-read-token",
@@ -27,7 +30,7 @@ public class LocalstackDataAccessService extends AbstractDataAccessService {
     }
 
     @Override
-    public CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
+    public CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path, Valuation valuation, DatasetState state) {
         Route route = getRoute(path, valuation, state);
         return CompletableFuture.completedFuture(
                 new AccessToken(

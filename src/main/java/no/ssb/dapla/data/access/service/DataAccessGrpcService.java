@@ -298,7 +298,6 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                             Tracing.restoreTracingContext(tracerAndSpan);
                                             DatasetMeta allowedMetadata = DatasetMeta.newBuilder()
                                                     .mergeFrom(untrustedMetadata)
-                                                    .setParentUri(location.toString())
                                                     .setCreatedBy(userId)
                                                     .build();
 
@@ -309,6 +308,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                                     .setAccessAllowed(true)
                                                     .setValidMetadataJson(validMetadataJson)
                                                     .setMetadataSignature(signature)
+                                                    .setParentUri(location.toString())
                                                     .build()));
                                         })
                                         .exceptionally(throwable -> {

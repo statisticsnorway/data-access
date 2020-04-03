@@ -2,13 +2,15 @@ package no.ssb.dapla.data.access.service;
 
 import io.helidon.config.Config;
 import io.helidon.config.ConfigSources;
-import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.dapla.dataset.api.DatasetState;
+import no.ssb.dapla.dataset.api.Valuation;
 import org.junit.jupiter.api.Test;
 
 import java.util.NoSuchElementException;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class AbstractDataAccessServiceTest {
 
@@ -19,25 +21,25 @@ public class AbstractDataAccessServiceTest {
 
     @Test
     void testSensitivePath() {
-        Route route = sut.getRoute("/raw/skatt/sensitive", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
+        Route route = sut.getRoute("/raw/skatt/sensitive", Valuation.SENSITIVE, DatasetState.RAW);
         assertThat(route.getAuth().get("read")).isEqualTo("sensitive-rawdata-skatt-read.json");
     }
 
     @Test
     void testNotSensitivePath() {
-        Route route = sut.getRoute("/raw/skatt/shielded", DatasetMeta.Valuation.SHIELDED, DatasetMeta.DatasetState.RAW);
+        Route route = sut.getRoute("/raw/skatt/shielded", Valuation.SHIELDED, DatasetState.RAW);
         assertThat(route.getAuth().get("read")).isEqualTo("not-so-sensitive-rawdata-skatt-read.json");
     }
 
     @Test
     void testExludeWeirdPath() {
-        Route route = sut.getRoute("/raw/skatt/weird-special", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
+        Route route = sut.getRoute("/raw/skatt/weird-special", Valuation.SENSITIVE, DatasetState.RAW);
         assertThat(route.getAuth().get("read")).isEqualTo("catch-all-read.json");
     }
 
     @Test
     void testTempPath() {
-        Route route = sut.getRoute("/tmp/gunnar", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
+        Route route = sut.getRoute("/tmp/gunnar", Valuation.SENSITIVE, DatasetState.RAW);
         // Empty auth should be allowed (in reality only used for gcs)
         assertThat(route.getAuth()).isEmpty();
         assertThat(route.getUri().toString()).isEqualTo("file:///data/datastore/tmp");
@@ -45,7 +47,7 @@ public class AbstractDataAccessServiceTest {
 
     @Test
     void testCatchAllPath() {
-        Route route = sut.getRoute("/catch-me-please", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
+        Route route = sut.getRoute("/catch-me-please", Valuation.SENSITIVE, DatasetState.RAW);
         assertThat(route.getAuth().get("read")).isEqualTo("catch-all-read.json");
     }
 

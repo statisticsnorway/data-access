@@ -4,7 +4,8 @@ import io.helidon.config.Config;
 import io.opentracing.Span;
 import no.ssb.dapla.data.access.oauth.GoogleCredentialsDetails;
 import no.ssb.dapla.data.access.oauth.GoogleCredentialsFactory;
-import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.dapla.dataset.api.DatasetState;
+import no.ssb.dapla.dataset.api.Valuation;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
@@ -39,7 +40,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
     }
 
     @Override
-    public CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
+    public CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path, Valuation valuation, DatasetState state) {
         CompletableFuture<AccessToken> future = new CompletableFuture<>();
         try {
             span.log(String.format("User %s is asking to write path %s", userId, path));

@@ -1,8 +1,8 @@
 package no.ssb.dapla.data.access.service;
 
 import io.opentracing.Span;
-import no.ssb.dapla.dataset.api.DatasetMeta.DatasetState;
-import no.ssb.dapla.dataset.api.DatasetMeta.Valuation;
+import no.ssb.dapla.dataset.api.DatasetState;
+import no.ssb.dapla.dataset.api.Valuation;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;

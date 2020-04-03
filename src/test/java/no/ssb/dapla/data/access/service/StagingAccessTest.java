@@ -2,10 +2,11 @@ package no.ssb.dapla.data.access.service;
 
 import io.helidon.config.Config;
 import io.helidon.config.ConfigSources;
-import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.dapla.dataset.api.DatasetState;
+import no.ssb.dapla.dataset.api.Valuation;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 
 public class StagingAccessTest {
@@ -17,35 +18,35 @@ public class StagingAccessTest {
 
     @Test
     void testRawPath() {
-        Route route = sut.getRoute("/raw/skatt/test", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.RAW);
+        Route route = sut.getRoute("/raw/skatt/test", Valuation.SENSITIVE, DatasetState.RAW);
         assertThat(route.getUri().getHost()).isEqualTo("staging-rawdata-store");
         assertThat(route.getUri().getPath()).isEqualTo("/datastore");
     }
 
     @Test
     void testSensitivePath() {
-        Route route = sut.getRoute("/skatt/test-sensitive", DatasetMeta.Valuation.SENSITIVE, DatasetMeta.DatasetState.INPUT);
+        Route route = sut.getRoute("/skatt/test-sensitive", Valuation.SENSITIVE, DatasetState.INPUT);
         assertThat(route.getUri().getHost()).isEqualTo("ssb-data-staging");
         assertThat(route.getUri().getPath()).isEqualTo("/datastore/sensitive");
     }
 
     @Test
     void testNotSensitivePath() {
-        Route route = sut.getRoute("/skatt/test-shielded", DatasetMeta.Valuation.SHIELDED, DatasetMeta.DatasetState.INPUT);
+        Route route = sut.getRoute("/skatt/test-shielded", Valuation.SHIELDED, DatasetState.INPUT);
         assertThat(route.getUri().getHost()).isEqualTo("ssb-data-staging");
         assertThat(route.getUri().getPath()).isEqualTo("/datastore/work");
     }
 
     @Test
     void testTempPath() {
-        Route route = sut.getRoute("/tmp/gunnar", DatasetMeta.Valuation.INTERNAL, DatasetMeta.DatasetState.OUTPUT);
+        Route route = sut.getRoute("/tmp/gunnar", Valuation.INTERNAL, DatasetState.OUTPUT);
         assertThat(route.getUri().getHost()).isEqualTo("ssb-data-staging");
         assertThat(route.getUri().getPath()).isEqualTo("/datastore/tmp");
     }
 
     @Test
     void testCatchAllPath() {
-        Route route = sut.getRoute("/catch-me-please", DatasetMeta.Valuation.INTERNAL, DatasetMeta.DatasetState.OTHER);
+        Route route = sut.getRoute("/catch-me-please", Valuation.INTERNAL, DatasetState.OTHER);
         assertThat(route.getUri().getHost()).isEqualTo("ssb-data-staging");
         assertThat(route.getUri().getPath()).isEqualTo("/datastore/other");
     }

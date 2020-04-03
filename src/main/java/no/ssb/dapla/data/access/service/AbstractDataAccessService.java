@@ -2,7 +2,8 @@ package no.ssb.dapla.data.access.service;
 
 import io.helidon.config.Config;
 import io.opentracing.Span;
-import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.dapla.dataset.api.DatasetState;
+import no.ssb.dapla.dataset.api.Valuation;
 
 import java.net.URI;
 import java.util.Collections;
@@ -24,31 +25,33 @@ public abstract class AbstractDataAccessService implements DataAccessService {
 
     @Override
     public abstract CompletableFuture<AccessToken> getWriteAccessToken(Span span, String userId, String path,
-                                                                       DatasetMeta.Valuation valuation,
-                                                                       DatasetMeta.DatasetState state);
+                                                                       Valuation valuation,
+                                                                       DatasetState state);
 
     @Override
     public CompletableFuture<URI> getWriteLocation(Span span, String userId, String path,
-                                                      DatasetMeta.Valuation valuation,
-                                                      DatasetMeta.DatasetState state) {
+                                                   Valuation valuation,
+                                                   DatasetState state) {
         return CompletableFuture.completedFuture(getRoute(path, valuation, state).getUri());
     }
 
     /**
      * Find the first matching route based on the given source parameters
+     *
      * @param path
      * @param valuation
      * @param state
      * @return the first matching route
      */
-    Route getRoute(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
+    Route getRoute(String path, Valuation valuation, DatasetState state) {
         return route(path, valuation, state).orElseThrow(() ->
                 new NoSuchElementException("Could not find route for path: " + path + " with valuation " + valuation +
-                " and state " + state));
+                        " and state " + state));
     }
 
     /**
      * Find the first matching route that has resolves to the following target scheme and host
+     *
      * @param scheme
      * @param host
      * @return the first matching route
@@ -56,19 +59,19 @@ public abstract class AbstractDataAccessService implements DataAccessService {
     Route getRoute(String scheme, String host) {
         return routing.asNodeList().orElseThrow(() ->
                 new RuntimeException("Route configuration is missing")).stream().filter(route ->
-                    route.get("target").get("uri").get("scheme").asString().get().equals(scheme) &&
-                    route.get("target").get("uri").get("host").asString().get().equals(host)
+                route.get("target").get("uri").get("scheme").asString().get().equals(scheme) &&
+                        route.get("target").get("uri").get("host").asString().get().equals(host)
         ).findFirst().map(Route::new).orElseThrow(() ->
                 new NoSuchElementException("Could not find target: " + scheme + "://" + host));
     }
 
-    private Optional<Route> route(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state) {
+    private Optional<Route> route(String path, Valuation valuation, DatasetState state) {
         return routing.asNodeList().orElseThrow(() ->
-                    new RuntimeException("Route configuration is missing")).stream().filter(route ->
+                new RuntimeException("Route configuration is missing")).stream().filter(route ->
                 matchRoutingEntry(path, valuation, state, route.get("source"))).findFirst().map(Route::new);
     }
 
-    private boolean matchRoutingEntry(String path, DatasetMeta.Valuation valuation, DatasetMeta.DatasetState state,
+    private boolean matchRoutingEntry(String path, Valuation valuation, DatasetState state,
                                       Config source) {
         if (source.get("paths").exists() && !match(source.get("paths"), path::startsWith)) {
             return false;
