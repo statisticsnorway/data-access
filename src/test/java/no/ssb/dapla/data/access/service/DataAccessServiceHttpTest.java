@@ -2,12 +2,8 @@ package no.ssb.dapla.data.access.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import no.ssb.dapla.data.access.protobuf.ReadAccessTokenRequest;
-import no.ssb.dapla.data.access.protobuf.ReadAccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
-import no.ssb.dapla.data.access.protobuf.WriteAccessTokenRequest;
-import no.ssb.dapla.data.access.protobuf.WriteAccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
 import no.ssb.dapla.data.access.protobuf.WriteLocationResponse;
 import no.ssb.dapla.dataset.api.DatasetId;
@@ -49,15 +45,6 @@ class DataAccessServiceHttpTest {
         assertNotNull(response);
         assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
         assertThat(response.getVersion()).isEqualTo("1");
-    }
-
-    @Test
-    public void thatReadAccessTokenWorks() {
-        ReadAccessTokenResponse response = testClient.post("/rpc/DataAccessService/readAccessToken", ReadAccessTokenRequest.newBuilder()
-                        .setPath("/path/to/dataset")
-                        .build(),
-                ReadAccessTokenResponse.class, headers).body();
-        assertNotNull(response);
         assertThat(response.getAccessToken()).isEqualTo("dev-read.json-read-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
@@ -79,16 +66,10 @@ class DataAccessServiceHttpTest {
 
         assertNotNull(writeLocationResponse);
         assertThat(writeLocationResponse.getAccessAllowed()).isTrue();
+        assertThat(writeLocationResponse.getAccessToken()).isEqualTo("dev-datalager-store-write-token");
+        assertThat(writeLocationResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
         DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
         assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
 
-        WriteAccessTokenResponse writeAccessTokenResponse = testClient.post("/rpc/DataAccessService/writeAccessToken", WriteAccessTokenRequest.newBuilder()
-                        .setMetadataJson(writeLocationResponse.getValidMetadataJson())
-                        .setMetadataSignature(writeLocationResponse.getMetadataSignature())
-                        .build(),
-                WriteAccessTokenResponse.class, headers).body();
-
-        assertThat(writeAccessTokenResponse.getAccessToken()).isEqualTo("dev-datalager-store-write-token");
-        assertThat(writeAccessTokenResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 }
