@@ -16,7 +16,7 @@ public class AbstractDataAccessServiceTest {
 
     private static final String ROUTE = "src/test/resources/routing.json";
 
-    private AbstractDataAccessService sut = new LocalstackDataAccessService(
+    private AbstractDataAccessService sut = new MockDataAccessService(
             Config.builder().sources(ConfigSources.file(ROUTE)).build());
 
     @Test

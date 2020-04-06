@@ -24,7 +24,6 @@ import javax.inject.Inject;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(IntegrationTestExtension.class)
 @GrpcMockRegistryConfig(DataAccessGrpcMockRegistry.class)

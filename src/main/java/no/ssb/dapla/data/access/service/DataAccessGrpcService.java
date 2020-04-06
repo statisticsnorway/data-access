@@ -113,11 +113,15 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             accessTokenFuture
                                     .orTimeout(10, TimeUnit.SECONDS)
                                     .thenAccept(token -> {
+                                        Tracing.restoreTracingContext(tracerAndSpan);
                                         responseBuilder
+                                            .setParentUri(getDatasetResponse.getDataset().getParentUri())
+                                            .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()));
+                                        if (token != null) {
+                                            responseBuilder
                                                 .setAccessToken(token.getAccessToken())
-                                                .setExpirationTime(token.getExpirationTime())
-                                                .setParentUri(getDatasetResponse.getDataset().getParentUri())
-                                                .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()));
+                                                .setExpirationTime(token.getExpirationTime());
+                                        }
                                         responseObserver.onNext(traceOutputMessage(span, responseBuilder.build()));
                                         responseObserver.onCompleted();
                                         span.finish();
@@ -274,13 +278,17 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                                     .orTimeout(10, TimeUnit.SECONDS)
                                                     .thenAccept(token -> {
                                                         Tracing.restoreTracingContext(tracerAndSpan);
-                                                        responseObserver.onNext(traceOutputMessage(span, WriteLocationResponse.newBuilder()
+                                                        WriteLocationResponse.Builder responseBuilder = WriteLocationResponse.newBuilder()
                                                                 .setAccessAllowed(true)
                                                                 .setValidMetadataJson(validMetadataJson)
                                                                 .setMetadataSignature(signature)
-                                                                .setParentUri(location.toString())
-                                                                .setAccessToken(token.getAccessToken())
-                                                                .setExpirationTime(token.getExpirationTime())
+                                                                .setParentUri(location.toString());
+                                                        if (token != null) {
+                                                                responseBuilder
+                                                                    .setAccessToken(token.getAccessToken())
+                                                                    .setExpirationTime(token.getExpirationTime());
+                                                        }
+                                                        responseObserver.onNext(traceOutputMessage(span, responseBuilder
                                                                 .build()));
                                                         responseObserver.onCompleted();
                                                         span.finish();

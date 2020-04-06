@@ -2,7 +2,7 @@ grpcserver:
   port: 0
 
 data-access:
-  provider: no.ssb.dapla.data.access.service.LocalstackDataAccessService
+  provider: no.ssb.dapla.data.access.service.MockDataAccessService
 
 tracing:
   enabled: false
