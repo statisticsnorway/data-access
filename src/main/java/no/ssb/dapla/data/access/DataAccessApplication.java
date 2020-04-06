@@ -24,7 +24,6 @@ import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.service.DataAccessGrpcService;
 import no.ssb.dapla.data.access.service.DataAccessService;
 import no.ssb.dapla.data.access.service.GoogleDataAccessService;
-import no.ssb.dapla.data.access.service.LocalstackDataAccessService;
 import no.ssb.helidon.application.AuthorizationInterceptor;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
@@ -63,10 +62,17 @@ public class DataAccessApplication extends DefaultHelidonApplication {
         put(Config.class, config);
 
         DataAccessService dataAccessService;
-        if (config.get("data-access.provider").asString().get().equals(GoogleDataAccessService.class.getName())) {
-            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("routing.file").asString().get()));
+        if (config.get("data-access.provider").exists()) {
+            final String className = config.get("data-access.provider").asString().get();
+            try {
+                dataAccessService = (DataAccessService) Class.forName(className)
+                        .getDeclaredConstructor(Config.class)
+                        .newInstance(loadConfig(config.get("routing.file").asString().get()));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException("Could not instantiate " + className);
+            }
         } else {
-            dataAccessService = new LocalstackDataAccessService(loadConfig(config.get("routing.file").asString().get()));
+            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("routing.file").asString().get()));
         }
 
         Config signerConfig = config.get("metadatads");

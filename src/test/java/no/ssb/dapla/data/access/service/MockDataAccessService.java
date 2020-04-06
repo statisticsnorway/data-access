@@ -10,9 +10,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static java.util.Optional.ofNullable;
 
-public class LocalstackDataAccessService extends AbstractDataAccessService {
+public class MockDataAccessService extends AbstractDataAccessService {
 
-    public LocalstackDataAccessService(Config config) {
+    public MockDataAccessService(Config config) {
         super(config);
     }
 

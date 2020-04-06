@@ -22,12 +22,8 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
-import no.ssb.dapla.data.access.protobuf.ReadAccessTokenRequest;
-import no.ssb.dapla.data.access.protobuf.ReadAccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
-import no.ssb.dapla.data.access.protobuf.WriteAccessTokenRequest;
-import no.ssb.dapla.data.access.protobuf.WriteAccessTokenResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
 import no.ssb.dapla.data.access.protobuf.WriteLocationResponse;
 import no.ssb.dapla.dataset.api.DatasetMeta;
@@ -84,7 +80,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                     (getDatasetResponse, accessCheckResponse) -> {
                         try {
                             Tracing.restoreTracingContext(tracerAndSpan);
-                            ReadLocationResponse response = ReadLocationResponse.newBuilder()
+
+                            ReadLocationResponse.Builder responseBuilder = ReadLocationResponse.newBuilder()
                                     .setAccessAllowed(accessCheckResponse.getAllowed())
                                     .setParentUri(ofNullable(getDatasetResponse)
                                             .filter(GetDatasetResponse::hasDataset)
@@ -98,10 +95,49 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                             .map(Dataset::getId)
                                             .map(DatasetId::getTimestamp)
                                             .map(String::valueOf)
-                                            .orElse(""))
-                                    .build();
-                            responseObserver.onNext(traceOutputMessage(span, response));
-                            responseObserver.onCompleted();
+                                            .orElse(""));
+
+                            if (!accessCheckResponse.getAllowed()) {
+                                try {
+                                    responseObserver.onNext(traceOutputMessage(span, responseBuilder.build()));
+                                    responseObserver.onCompleted();
+                                } finally {
+                                    span.finish();
+                                }
+                                return;
+                            }
+
+                            CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getReadAccessToken(
+                                    span, userId, getDatasetResponse.getDataset().getParentUri());
+
+                            accessTokenFuture
+                                    .orTimeout(10, TimeUnit.SECONDS)
+                                    .thenAccept(token -> {
+                                        Tracing.restoreTracingContext(tracerAndSpan);
+                                        responseBuilder
+                                            .setParentUri(getDatasetResponse.getDataset().getParentUri())
+                                            .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()));
+                                        if (token != null) {
+                                            responseBuilder
+                                                .setAccessToken(token.getAccessToken())
+                                                .setExpirationTime(token.getExpirationTime());
+                                        }
+                                        responseObserver.onNext(traceOutputMessage(span, responseBuilder.build()));
+                                        responseObserver.onCompleted();
+                                        span.finish();
+                                    })
+                                    .exceptionally(throwable -> {
+                                        try {
+                                            Tracing.restoreTracingContext(tracerAndSpan);
+                                            logError(span, throwable, "error in getReadAccessToken()");
+                                            LOG.error(String.format("getReadAccessToken()"), throwable);
+                                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                                            return null;
+                                        } finally {
+                                            span.finish();
+                                        }
+                                    });
+
                             span.finish();
                         } catch (RuntimeException | Error e) {
                             logError(span, e, "unexpected error");
@@ -122,76 +158,6 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         }
     }
 
-    @Override
-    public void readAccessToken(ReadAccessTokenRequest request, StreamObserver<ReadAccessTokenResponse> responseObserver) {
-        TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
-        Span span = tracerAndSpan.span();
-        try {
-            String bearerToken = AuthorizationInterceptor.token();
-            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(bearerToken);
-            DecodedJWT decodedJWT = JWT.decode(bearerToken);
-            String userId = decodedJWT.getClaim("preferred_username").asString();
-            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
-
-            readRequest(responseObserver, request.getPath(), request.getVersion(), tracerAndSpan, span, credentials, userId,
-                    (getDatasetResponse, accessCheckResponse) -> {
-                        try {
-                            Tracing.restoreTracingContext(tracerAndSpan);
-
-                            if (!accessCheckResponse.getAllowed()) {
-                                try {
-                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
-                                } finally {
-                                    span.finish();
-                                }
-                                return;
-                            }
-
-                            CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getReadAccessToken(
-                                    span, userId, getDatasetResponse.getDataset().getParentUri());
-
-                            accessTokenFuture
-                                    .orTimeout(10, TimeUnit.SECONDS)
-                                    .thenAccept(token -> {
-                                        Tracing.restoreTracingContext(tracerAndSpan);
-                                        responseObserver.onNext(traceOutputMessage(span, ReadAccessTokenResponse.newBuilder()
-                                                .setAccessToken(token.getAccessToken())
-                                                .setExpirationTime(token.getExpirationTime())
-                                                .setParentUri(getDatasetResponse.getDataset().getParentUri())
-                                                .setVersion(String.valueOf(getDatasetResponse.getDataset().getId().getTimestamp()))
-                                                .build()));
-                                        responseObserver.onCompleted();
-                                        span.finish();
-                                    })
-                                    .exceptionally(throwable -> {
-                                        try {
-                                            Tracing.restoreTracingContext(tracerAndSpan);
-                                            logError(span, throwable, "error in getAccessToken()");
-                                            LOG.error(String.format("getAccessToken()"), throwable);
-                                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                                            return null;
-                                        } finally {
-                                            span.finish();
-                                        }
-                                    });
-                        } catch (RuntimeException | Error e) {
-                            logError(span, e, "unexpected error");
-                            LOG.error("unexpected error", e);
-                            responseObserver.onError(e);
-                        }
-                    }
-            );
-
-        } catch (RuntimeException | Error e) {
-            try {
-                logError(span, e, "top-level error");
-                LOG.error("top-level error", e);
-                throw e;
-            } finally {
-                span.finish();
-            }
-        }
-    }
 
     <R> void readRequest(StreamObserver<R> responseObserver, final String path, String version, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String userId, BiConsumer<GetDatasetResponse, AccessCheckResponse> onUserAccessResponseConsumer) {
 
@@ -288,11 +254,11 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                             Tracing.restoreTracingContext(tracerAndSpan);
                             if (accessCheckResponse.getAllowed()) {
 
-                                CompletableFuture<URI> accessTokenFuture = dataAccessService.getWriteLocation(
+                                CompletableFuture<URI> writeLocationFuture = dataAccessService.getWriteLocation(
                                         span, userId, untrustedMetadata.getId().getPath(), untrustedMetadata.getValuation(), untrustedMetadata.getState()
                                 );
 
-                                accessTokenFuture
+                                writeLocationFuture
                                         .orTimeout(10, TimeUnit.SECONDS)
                                         .thenAccept(location -> {
                                             Tracing.restoreTracingContext(tracerAndSpan);
@@ -304,18 +270,47 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                             ByteString validMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadata));
                                             ByteString signature = ByteString.copyFrom(metadataSigner.sign(validMetadataJson.toByteArray()));
 
-                                            responseObserver.onNext(traceOutputMessage(span, WriteLocationResponse.newBuilder()
-                                                    .setAccessAllowed(true)
-                                                    .setValidMetadataJson(validMetadataJson)
-                                                    .setMetadataSignature(signature)
-                                                    .setParentUri(location.toString())
-                                                    .build()));
+                                            CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getWriteAccessToken(
+                                                    span, userId, allowedMetadata.getId().getPath(), allowedMetadata.getValuation(), allowedMetadata.getState()
+                                            );
+
+                                            accessTokenFuture
+                                                    .orTimeout(10, TimeUnit.SECONDS)
+                                                    .thenAccept(token -> {
+                                                        Tracing.restoreTracingContext(tracerAndSpan);
+                                                        WriteLocationResponse.Builder responseBuilder = WriteLocationResponse.newBuilder()
+                                                                .setAccessAllowed(true)
+                                                                .setValidMetadataJson(validMetadataJson)
+                                                                .setMetadataSignature(signature)
+                                                                .setParentUri(location.toString());
+                                                        if (token != null) {
+                                                                responseBuilder
+                                                                    .setAccessToken(token.getAccessToken())
+                                                                    .setExpirationTime(token.getExpirationTime());
+                                                        }
+                                                        responseObserver.onNext(traceOutputMessage(span, responseBuilder
+                                                                .build()));
+                                                        responseObserver.onCompleted();
+                                                        span.finish();
+                                                    })
+                                                    .exceptionally(throwable -> {
+                                                        try {
+                                                            Tracing.restoreTracingContext(tracerAndSpan);
+                                                            logError(span, throwable, "error in getWriteAccessToken()");
+                                                            LOG.error(String.format("getWriteAccessToken()"), throwable);
+                                                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                                                            return null;
+                                                        } finally {
+                                                            span.finish();
+                                                        }
+                                                    });
+
                                         })
                                         .exceptionally(throwable -> {
                                             try {
                                                 Tracing.restoreTracingContext(tracerAndSpan);
-                                                logError(span, throwable, "error in getAccessToken()");
-                                                LOG.error(String.format("getAccessToken()"), throwable);
+                                                logError(span, throwable, "error in getWriteLocation()");
+                                                LOG.error(String.format("getWriteLocation()"), throwable);
                                                 responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
                                                 return null;
                                             } finally {
@@ -327,92 +322,9 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                 responseObserver.onNext(traceOutputMessage(span, WriteLocationResponse.newBuilder()
                                         .setAccessAllowed(false)
                                         .build()));
+                                responseObserver.onCompleted();
+                                span.finish();
                             }
-                            responseObserver.onCompleted();
-                            span.finish();
-                        } catch (RuntimeException | Error e) {
-                            logError(span, e, "unexpected error");
-                            LOG.error("unexpected error", e);
-                            responseObserver.onError(e);
-                        }
-                    });
-
-        } catch (RuntimeException | Error e) {
-            try {
-                logError(span, e, "top-level error");
-                LOG.error("top-level error", e);
-                throw e;
-            } finally {
-                span.finish();
-            }
-        }
-    }
-
-    @Override
-    public void writeAccessToken(WriteAccessTokenRequest request, StreamObserver<WriteAccessTokenResponse> responseObserver) {
-        TracerAndSpan tracerAndSpan = Tracing.spanFromGrpc(request, "getLocation");
-        Span span = tracerAndSpan.span();
-        try {
-            String bearerToken = AuthorizationInterceptor.token();
-            final GrpcAuthorizationBearerCallCredentials credentials = new GrpcAuthorizationBearerCallCredentials(bearerToken);
-            DecodedJWT decodedJWT = JWT.decode(bearerToken);
-            String userId = decodedJWT.getClaim("preferred_username").asString();
-            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
-
-            boolean valid = metadataSigner.verify(request.getMetadataJson().toByteArray(), request.getMetadataSignature().toByteArray());
-            if (!valid) {
-                try {
-                    span.log("invalid metadata signature");
-                    LOG.error("invalid metadata signature");
-                    responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT));
-                    return;
-                } finally {
-                    span.finish();
-                }
-            }
-
-            DatasetMeta datasetMeta = ProtobufJsonUtils.toPojo(request.getMetadataJson().toStringUtf8(), DatasetMeta.class);
-
-            writeRequest(responseObserver, datasetMeta, tracerAndSpan, span, credentials, userId,
-                    accessCheckResponse -> {
-                        try {
-                            Tracing.restoreTracingContext(tracerAndSpan);
-
-                            if (!accessCheckResponse.getAllowed()) {
-                                try {
-                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
-                                } finally {
-                                    span.finish();
-                                }
-                                return;
-                            }
-
-                            CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getWriteAccessToken(
-                                    span, userId, datasetMeta.getId().getPath(), datasetMeta.getValuation(), datasetMeta.getState()
-                            );
-
-                            accessTokenFuture
-                                    .orTimeout(10, TimeUnit.SECONDS)
-                                    .thenAccept(token -> {
-                                        Tracing.restoreTracingContext(tracerAndSpan);
-                                        responseObserver.onNext(traceOutputMessage(span, WriteAccessTokenResponse.newBuilder()
-                                                .setAccessToken(token.getAccessToken())
-                                                .setExpirationTime(token.getExpirationTime())
-                                                .build()));
-                                        responseObserver.onCompleted();
-                                        span.finish();
-                                    })
-                                    .exceptionally(throwable -> {
-                                        try {
-                                            Tracing.restoreTracingContext(tracerAndSpan);
-                                            logError(span, throwable, "error in getAccessToken()");
-                                            LOG.error(String.format("getAccessToken()"), throwable);
-                                            responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                                            return null;
-                                        } finally {
-                                            span.finish();
-                                        }
-                                    });
                         } catch (RuntimeException | Error e) {
                             logError(span, e, "unexpected error");
                             LOG.error("unexpected error", e);

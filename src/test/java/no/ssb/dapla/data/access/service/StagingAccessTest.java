@@ -13,7 +13,7 @@ public class StagingAccessTest {
 
     private static final String ROUTE = "src/test/resources/routing/staging.json";
 
-    private AbstractDataAccessService sut = new LocalstackDataAccessService(
+    private AbstractDataAccessService sut = new MockDataAccessService(
             Config.builder().sources(ConfigSources.file(ROUTE)).build());
 
     @Test
