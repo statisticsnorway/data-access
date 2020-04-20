@@ -14,6 +14,7 @@ import io.opentracing.Span;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
+import no.ssb.dapla.auth.dataset.protobuf.Privilege;
 import no.ssb.dapla.auth.dataset.protobuf.Role;
 import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc.CatalogServiceFutureStub;
 import no.ssb.dapla.catalog.protobuf.Dataset;
@@ -192,8 +193,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                         .setUserId(userId)
                         .setValuation(dataset.getValuation().name())
                         .setState(dataset.getState().name())
-                        .setNamespace(path)
-                        .setPrivilege(Role.Privilege.READ.name())
+                        .setPath(path)
+                        .setPrivilege(Privilege.READ.name())
                         .build();
 
                 ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
@@ -349,8 +350,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                 .setUserId(userId)
                 .setValuation(datasetMeta.getValuation().name())
                 .setState(datasetMeta.getState().name())
-                .setNamespace(datasetMeta.getId().getPath())
-                .setPrivilege(Role.Privilege.CREATE.name())
+                .setPath(datasetMeta.getId().getPath())
+                .setPrivilege(Privilege.CREATE.name())
                 .build();
 
         ListenableFuture<AccessCheckResponse> accessCheckResponseListenableFuture = authServiceFutureStub
