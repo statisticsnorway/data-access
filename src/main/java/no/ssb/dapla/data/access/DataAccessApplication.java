@@ -31,6 +31,9 @@ import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -79,7 +82,12 @@ public class DataAccessApplication extends DefaultHelidonApplication {
         String keystoreFormat = signerConfig.get("format").asString().get();
         String keystore = signerConfig.get("keystore").asString().get();
         String keyAlias = signerConfig.get("keyAlias").asString().get();
-        char[] password = signerConfig.get("password").asString().get().toCharArray();
+        char[] password = signerConfig.get("password-file").asString()
+                .filter(s -> !s.isBlank())
+                .map(passwordFile -> Path.of(passwordFile))
+                .filter(Files::exists)
+                .map(this::readPasswordFromFile)
+                .orElseGet(() -> signerConfig.get("password").asString().get().toCharArray());
         String algorithm = signerConfig.get("algorithm").asString().get();
 
         MetadataSigner metadataSigner = new MetadataSigner(keystoreFormat, keystore, keyAlias, password, algorithm);
@@ -138,6 +146,14 @@ public class DataAccessApplication extends DefaultHelidonApplication {
                         .build(),
                 routing);
         put(WebServer.class, webServer);
+    }
+
+    private char[] readPasswordFromFile(Path passwordPath) {
+        try {
+            return Files.readString(passwordPath).toCharArray();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private Config loadConfig(String path) {
