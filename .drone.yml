@@ -137,6 +137,7 @@ steps:
       - docker tag "eu.gcr.io/prod-bip/data-access:master-${DRONE_COMMIT_SHA:0:8}" "eu.gcr.io/prod-bip/data-access:${DRONE_TAG}"
       - docker push "eu.gcr.io/prod-bip/data-access:${DRONE_TAG}"
     environment:
+      DOCKER_API_VERSION: 1.38
       JSON_KEY:
         from_secret: gcr_credentials
 
