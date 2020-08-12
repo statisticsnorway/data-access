@@ -277,7 +277,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                                     span, userId, allowedMetadata.getId().getPath(), allowedMetadata.getValuation(), allowedMetadata.getState()
                                             );
 
-                                            polluteRequest(responseObserver,tracerAndSpan, span, credentials, allowedMetadata.getId().getPath());
+                                            polluteRequest(responseObserver, allowedMetadata.getId().getPath(), tracerAndSpan, span, credentials, consumer ->{});
 
                                             accessTokenFuture
                                                     .orTimeout(10, TimeUnit.SECONDS)
@@ -383,20 +383,18 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
         }, MoreExecutors.directExecutor());
     }
 
-    <R> void polluteRequest(StreamObserver<R> responseObserver, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String path) {
-        ListenableFuture<PolluteDatasetResponse> responseListenableFuture = catalogServiceFutureStub
+    <R> void polluteRequest(StreamObserver<R> responseObserver, final String path, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, Consumer<PolluteDatasetResponse> consumer) {
+        PolluteDatasetRequest polluteDatasetRequest = PolluteDatasetRequest.newBuilder()
+                .setPath(path)
+                .build();
+        ListenableFuture<PolluteDatasetResponse> polluteDatasetResponseListenableFuture = catalogServiceFutureStub
                 .withCallCredentials(credentials)
-                .pollute(PolluteDatasetRequest.newBuilder()
-                        .setPath(path)
-                        .build());
+                .pollute(polluteDatasetRequest);
 
-        Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
+        Futures.addCallback(polluteDatasetResponseListenableFuture, new FutureCallback<>() {
             @Override
             public void onSuccess(@Nullable PolluteDatasetResponse polluteDatasetResponse) {
-                try {
-                    LOG.info("polluteRequest succeed");
-                } finally {
-                }
+                LOG.info("polluteRequest succeed");
             }
 
             @Override
