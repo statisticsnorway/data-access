@@ -21,6 +21,8 @@ import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.PolluteDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.PolluteDatasetResponse;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.protobuf.DataAccessServiceGrpc;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
@@ -275,6 +277,8 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                                     span, userId, allowedMetadata.getId().getPath(), allowedMetadata.getValuation(), allowedMetadata.getState()
                                             );
 
+                                            polluteRequest(responseObserver,tracerAndSpan, span, credentials, allowedMetadata.getId().getPath());
+
                                             accessTokenFuture
                                                     .orTimeout(10, TimeUnit.SECONDS)
                                                     .thenAccept(token -> {
@@ -371,6 +375,36 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                     logError(span, throwable, "error while performing authServiceFutureStub.hasAccess");
                     LOG.error("writeRequest: error while performing authServiceFutureStub.hasAccess", throwable);
                     LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
+                    responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                } finally {
+                    span.finish();
+                }
+            }
+        }, MoreExecutors.directExecutor());
+    }
+
+    <R> void polluteRequest(StreamObserver<R> responseObserver, TracerAndSpan tracerAndSpan, Span span, GrpcAuthorizationBearerCallCredentials credentials, String path) {
+        ListenableFuture<PolluteDatasetResponse> responseListenableFuture = catalogServiceFutureStub
+                .withCallCredentials(credentials)
+                .pollute(PolluteDatasetRequest.newBuilder()
+                        .setPath(path)
+                        .build());
+
+        Futures.addCallback(responseListenableFuture, new FutureCallback<>() {
+            @Override
+            public void onSuccess(@Nullable PolluteDatasetResponse polluteDatasetResponse) {
+                try {
+                    LOG.info("polluteRequest succeed");
+                } finally {
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                try {
+                    Tracing.restoreTracingContext(tracerAndSpan);
+                    logError(span, throwable, "error while performing catalog pollute");
+                    LOG.error("polluteRequest: error while performing catalog pollute", throwable);
                     responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
                 } finally {
                     span.finish();
