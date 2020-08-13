@@ -7,6 +7,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
+import io.grpc.Context;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
@@ -276,8 +277,10 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
                                             CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getWriteAccessToken(
                                                     span, userId, allowedMetadata.getId().getPath(), allowedMetadata.getValuation(), allowedMetadata.getState()
                                             );
-
-                                            polluteRequest(responseObserver, allowedMetadata.getId().getPath(), tracerAndSpan, span, credentials, consumer ->{});
+                                            Context ctx = Context.current().fork();
+                                            ctx.run(()->{
+                                                polluteRequest(responseObserver, allowedMetadata.getId().getPath(), tracerAndSpan, span, credentials, consumer ->{});
+                                            });
 
                                             accessTokenFuture
                                                     .orTimeout(10, TimeUnit.SECONDS)
@@ -395,6 +398,7 @@ public class DataAccessGrpcService extends DataAccessServiceGrpc.DataAccessServi
             @Override
             public void onSuccess(@Nullable PolluteDatasetResponse polluteDatasetResponse) {
                 LOG.info("polluteRequest succeed");
+                consumer.accept(polluteDatasetResponse);
             }
 
             @Override

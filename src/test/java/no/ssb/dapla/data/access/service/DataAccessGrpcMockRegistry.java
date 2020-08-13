@@ -4,7 +4,13 @@ import io.grpc.stub.StreamObserver;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.*;
+import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
+import no.ssb.dapla.catalog.protobuf.Dataset;
+import no.ssb.dapla.catalog.protobuf.DatasetId;
+import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.PolluteDatasetRequest;
+import no.ssb.dapla.catalog.protobuf.PolluteDatasetResponse;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 
 import java.util.HashMap;
