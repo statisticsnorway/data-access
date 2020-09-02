@@ -50,6 +50,7 @@ public class GoogleCredentialsFactory {
                 throw new RuntimeException("Could not find service account key file");
             }
             AccessToken accessToken = credentials.refreshAccessToken();
+            LOG.info("Token expires in: " + accessToken.getExpirationTime().getTime());
             return new GoogleCredentialsDetails(credentials, email, accessToken.getTokenValue(),
                     accessToken.getExpirationTime().getTime());
         } catch (IOException e) {

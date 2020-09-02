@@ -6,6 +6,8 @@ import no.ssb.dapla.data.access.oauth.GoogleCredentialsDetails;
 import no.ssb.dapla.data.access.oauth.GoogleCredentialsFactory;
 import no.ssb.dapla.dataset.api.DatasetState;
 import no.ssb.dapla.dataset.api.Valuation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
@@ -14,6 +16,7 @@ import static java.util.Optional.*;
 
 public class GoogleDataAccessService extends AbstractDataAccessService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(GoogleDataAccessService.class);
     private static final String WRITE_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
     private static final String READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
 
@@ -26,6 +29,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
         CompletableFuture<AccessToken> future = new CompletableFuture<>();
         try {
             span.log(String.format("User %s is asking to read from %s", userId, parentUriString));
+            LOG.info(String.format("User %s is asking to read from %s", userId, parentUriString));
             final URI parentUri = URI.create(parentUriString);
             if ("gs".equals(parentUri.getScheme())) {
                 GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
@@ -52,6 +56,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
         try {
             span.log(String.format("User %s is asking to write path %s", userId, path));
             Route route = getRoute(path, valuation, state);
+            LOG.info("Got route: " + route.getUri());
             if ("gs".equals(route.getUri().getScheme())) {
                 GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
                         route.getAuth().get("write"), WRITE_SCOPE);
