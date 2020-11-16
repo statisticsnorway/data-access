@@ -18,6 +18,7 @@ RUN apk --no-cache add curl tar gzip nano jq
 #
 COPY --from=build /linked /jdk/
 COPY --from=build /opt/jdk/bin/jar /opt/jdk/bin/jcmd /opt/jdk/bin/jdb /opt/jdk/bin/jfr /opt/jdk/bin/jinfo /opt/jdk/bin/jmap /opt/jdk/bin/jps /opt/jdk/bin/jstack /opt/jdk/bin/jstat /jdk/bin/
+COPY run.sh /app/
 COPY target/libs /app/lib/
 COPY target/data-access-service*.jar /app/lib/
 COPY target/classes/logback.xml /app/conf/
@@ -32,11 +33,5 @@ WORKDIR /app
 EXPOSE 10140
 EXPOSE 10148
 
-CMD ["java", "--add-exports=io.grpc/io.opencensus.trace=com.google.api.client", \
-"--add-exports=io.grpc/io.opencensus.trace.export=com.google.api.client", \
-"--add-exports=io.grpc/io.opencensus.trace.propagation=com.google.api.client", \
-"--add-exports=io.grpc/io.opencensus.common=com.google.api.client", \
-"--add-exports=io.grpc/io.opencensus.trace=opencensus.contrib.http.util", \
-"--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
-"--add-exports=io.grpc/io.opencensus.trace.propagation=opencensus.contrib.http.util", \
-"-p", "/app/lib", "-m", "no.ssb.dapla.data.access/no.ssb.dapla.data.access.DataAccessApplication"]
+ENV JAVA_MODULE_SYSTEM_ENABLED=true
+CMD ["./run.sh"]
