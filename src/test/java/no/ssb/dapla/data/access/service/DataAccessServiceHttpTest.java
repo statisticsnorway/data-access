@@ -12,8 +12,8 @@ import no.ssb.dapla.dataset.api.DatasetState;
 import no.ssb.dapla.dataset.api.Type;
 import no.ssb.dapla.dataset.api.Valuation;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
-import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
+import no.ssb.testing.helidon.MockRegistryConfig;
 import no.ssb.testing.helidon.TestClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(IntegrationTestExtension.class)
-@GrpcMockRegistryConfig(DataAccessGrpcMockRegistry.class)
+@MockRegistryConfig(DataAccessMockRegistry.class)
 class DataAccessServiceHttpTest {
 
     @Inject
@@ -35,9 +35,8 @@ class DataAccessServiceHttpTest {
 
     @Test
     public void thatReadLocationWorks() {
-
         ReadLocationResponse response = testClient
-                .post("/rpc/DataAccessService/readLocation", ReadLocationRequest.newBuilder()
+                .postAsJson("/rpc/DataAccessService/readLocation", ReadLocationRequest.newBuilder()
                                 .setPath("/path/to/dataset")
                                 .setSnapshot(2)
                                 .build(),
@@ -51,7 +50,7 @@ class DataAccessServiceHttpTest {
 
     @Test
     public void thatWriteLocationThenGetAccessTokenWorks() {
-        WriteLocationResponse writeLocationResponse = testClient.post("/rpc/DataAccessService/writeLocation", WriteLocationRequest.newBuilder()
+        WriteLocationResponse writeLocationResponse = testClient.postAsJson("/rpc/DataAccessService/writeLocation", WriteLocationRequest.newBuilder()
                         .setMetadataJson(ProtobufJsonUtils.toString(DatasetMeta.newBuilder()
                                 .setId(DatasetId.newBuilder()
                                         .setPath("/junit/write-loc-and-access-test")
@@ -70,6 +69,37 @@ class DataAccessServiceHttpTest {
         assertThat(writeLocationResponse.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
         DatasetMeta signedDatasetMeta = ProtobufJsonUtils.toPojo(writeLocationResponse.getValidMetadataJson().toStringUtf8(), DatasetMeta.class);
         assertThat(signedDatasetMeta.getCreatedBy()).isEqualTo("user");
+    }
 
+    @Test
+    public void thatInvalidUserFails() {
+        String[] headers = new String[]{"Authorization", "Bearer " + JWT.create().withClaim("preferred_username", "johndoe")
+                .sign(Algorithm.HMAC256("secret"))};
+
+        ReadLocationResponse readResponse = testClient.postAsJson(
+                "/rpc/DataAccessService/readLocation",
+                ReadLocationRequest.newBuilder()
+                        .setPath("/path/to/dataset")
+                        .build(),
+                ReadLocationResponse.class, headers).body();
+        assertNotNull(readResponse);
+        assertThat(readResponse.getAccessAllowed()).isFalse();
+
+        WriteLocationResponse writeResponse = testClient.postAsJson(
+                "/rpc/DataAccessService/writeLocation",
+                WriteLocationRequest.newBuilder()
+                        .setMetadataJson(ProtobufJsonUtils.toString(DatasetMeta.newBuilder()
+                                .setId(DatasetId.newBuilder()
+                                        .setPath("/junit/write-loc-and-access-test")
+                                        .setVersion(String.valueOf(System.currentTimeMillis()))
+                                        .build())
+                                .setType(Type.BOUNDED)
+                                .setValuation(Valuation.SENSITIVE)
+                                .setState(DatasetState.RAW)
+                                .build()))
+                        .build(),
+                WriteLocationResponse.class, headers).body();
+        assertNotNull(writeResponse);
+        assertThat(writeResponse.getAccessAllowed()).isFalse();
     }
 }

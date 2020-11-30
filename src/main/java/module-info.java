@@ -7,7 +7,6 @@ module no.ssb.dapla.data.access {
     requires no.ssb.helidon.media.protobuf.json.server;
     requires org.slf4j;
     requires jul.to.slf4j;
-    requires org.reactivestreams;
     requires com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.annotation;
     requires com.fasterxml.jackson.core;
@@ -20,15 +19,12 @@ module no.ssb.dapla.data.access {
     requires io.helidon.metrics;
     requires io.helidon.health;
     requires io.helidon.health.checks;
-    requires io.grpc;
 
-    requires grpc.protobuf;
-    requires io.helidon.grpc.server;
     requires java.logging;
+    requires io.helidon.webclient;
 
     requires com.google.gson; // required by JsonFormat in protobuf-java-util for serialization and deserialization
 
-    requires java.annotation;
     requires com.google.protobuf.util;
     requires com.google.common;
     requires no.ssb.helidon.application;
@@ -41,16 +37,14 @@ module no.ssb.dapla.data.access {
     requires jdk.naming.dns; // required by netty dns libraries used by reactive postgres
     requires java.sql; // required by flyway
     requires io.helidon.microprofile.config; // metrics uses provider org.eclipse.microprofile.config.spi.ConfigProviderResolver
-    requires perfmark.api; // needed by grpc-client
-    requires javax.inject; // required by io.helidon.grpc.server
 
-    requires org.checkerframework.checker.qual;
     requires io.helidon.tracing;
     requires com.google.auth.oauth2;
     requires com.google.auth;
 
     requires java.jwt;
     requires no.ssb.dapla.dataset.api;
+    requires com.google.protobuf;
 
     provides no.ssb.helidon.application.HelidonApplicationBuilder with DataAccessApplicationBuilder;
 }
