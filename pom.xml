@@ -43,22 +43,22 @@
         <dependency>
             <groupId>no.ssb.dapla</groupId>
             <artifactId>dataset-api</artifactId>
-            <version>0.3</version>
+            <version>0.5</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.data</groupId>
             <artifactId>data-access-protobuf</artifactId>
-            <version>0.10-SNAPSHOT</version>
+            <version>0.10</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.catalog</groupId>
             <artifactId>dapla-catalog-protobuf</artifactId>
-            <version>0.9-SNAPSHOT</version>
+            <version>0.9</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.dapla.auth.dataset</groupId>
             <artifactId>dapla-auth-dataset-protobuf</artifactId>
-            <version>0.7-SNAPSHOT</version>
+            <version>0.7</version>
         </dependency>
         <dependency>
             <groupId>no.ssb.helidon</groupId>
