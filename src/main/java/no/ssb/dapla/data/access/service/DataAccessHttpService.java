@@ -23,12 +23,14 @@ import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
 import no.ssb.dapla.data.access.protobuf.WriteLocationResponse;
 import no.ssb.dapla.dataset.api.DatasetMeta;
+import no.ssb.dapla.dataset.api.DatasetMetaAll;
 import no.ssb.helidon.application.Tracing;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -255,6 +257,20 @@ public class DataAccessHttpService implements Service {
                                     ByteString validMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadata));
                                     ByteString signature = ByteString.copyFrom(metadataSigner.sign(validMetadataJson.toByteArray()));
 
+                                    DatasetMetaAll allowedMetadataAll = DatasetMetaAll.newBuilder()
+                                            .setId(allowedMetadata.getId())
+                                            .setType(allowedMetadata.getType())
+                                            .setValuation(allowedMetadata.getValuation())
+                                            .setState(allowedMetadata.getState())
+                                            .setPseudoConfig(allowedMetadata.getPseudoConfig())
+                                            .setCreatedBy(allowedMetadata.getCreatedBy())
+                                            .setRandom(UUID.randomUUID().toString()) // strengthen cryptographic signature
+                                            .setParentUri(location.toString())
+                                            .build();
+
+                                    ByteString allValidMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadata));
+                                    ByteString allSignature = ByteString.copyFrom(metadataSigner.sign(allValidMetadataJson.toByteArray()));
+
                                     CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getWriteAccessToken(
                                             span, userId, allowedMetadata.getId().getPath(), allowedMetadata.getValuation(), allowedMetadata.getState()
                                     );
@@ -267,7 +283,9 @@ public class DataAccessHttpService implements Service {
                                                         .setAccessAllowed(true)
                                                         .setValidMetadataJson(validMetadataJson)
                                                         .setMetadataSignature(signature)
-                                                        .setParentUri(location.toString());
+                                                        .setParentUri(allowedMetadataAll.getParentUri())
+                                                        .setAllValidMetadataJson(allValidMetadataJson)
+                                                        .setAllMetadataSignature(allSignature);
                                                 if (token != null) {
                                                     responseBuilder
                                                             .setAccessToken(token.getAccessToken())
