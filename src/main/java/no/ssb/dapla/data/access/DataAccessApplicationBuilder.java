@@ -1,15 +1,12 @@
 package no.ssb.dapla.data.access;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.MethodDescriptor;
 import io.helidon.config.Config;
 import io.helidon.tracing.TracerBuilder;
 import io.opentracing.Tracer;
-import io.opentracing.contrib.grpc.OperationNameConstructor;
-import io.opentracing.contrib.grpc.TracingClientInterceptor;
-import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
-import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
+import no.ssb.dapla.data.access.service.CatalogClient;
+import no.ssb.dapla.data.access.service.CatalogWebClient;
+import no.ssb.dapla.data.access.service.UserAccessClient;
+import no.ssb.dapla.data.access.service.UserAccessWebClient;
 import no.ssb.helidon.application.DefaultHelidonApplicationBuilder;
 import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.application.HelidonApplicationBuilder;
@@ -18,67 +15,43 @@ import static java.util.Optional.ofNullable;
 
 public class DataAccessApplicationBuilder extends DefaultHelidonApplicationBuilder {
 
-    ManagedChannel catalogChannel;
-    ManagedChannel datasetAccessChannel;
+    UserAccessClient userAccessClient;
+    CatalogClient catalogClient;
 
     @Override
-    public <T> HelidonApplicationBuilder override(Class<T> clazz, T instance) {
-        super.override(clazz, instance);
-        if (ManagedChannel.class.isAssignableFrom(clazz)) {
-            catalogChannel = (ManagedChannel) instance;
-            datasetAccessChannel = (ManagedChannel) instance;
+    public HelidonApplicationBuilder override(Class<?> clazz, Object instance) {
+        if (UserAccessClient.class.isAssignableFrom(clazz)) {
+            this.userAccessClient = (UserAccessClient) instance;
         }
-        return this;
+        if (CatalogClient.class.isAssignableFrom(clazz)) {
+            this.catalogClient = (CatalogClient) instance;
+        }
+        return super.override(clazz, instance);
     }
 
     @Override
     public HelidonApplication build() {
-        Config config = ofNullable(this.config).orElseGet(() -> createDefaultConfig());
-
-        if (catalogChannel == null) {
-            catalogChannel = ManagedChannelBuilder
-                    .forAddress(
-                            config.get("catalog-service").get("host").asString().orElseThrow(() ->
-                                    new RuntimeException("missing configuration: catalog-service.host")),
-                            config.get("catalog-service").get("port").asInt().orElseThrow(() ->
-                                    new RuntimeException("missing configuration: catalog-service.port"))
-                    )
-                    .usePlaintext()
-                    .build();
-        }
-
-        if (datasetAccessChannel == null) {
-            datasetAccessChannel = ManagedChannelBuilder
-                    .forAddress(
-                            config.get("auth-service").get("host").asString().orElseThrow(() ->
-                                    new RuntimeException("missing configuration: auth-service.host")),
-                            config.get("auth-service").get("port").asInt().orElseThrow(() ->
-                                    new RuntimeException("missing configuration: auth-service.port"))
-                    )
-                    .usePlaintext()
-                    .build();
-        }
+        Config config = ofNullable(this.config).orElseGet(DefaultHelidonApplicationBuilder::createDefaultConfig);
 
         TracerBuilder<?> tracerBuilder = TracerBuilder.create(config.get("tracing")).registerGlobal(false);
         Tracer tracer = tracerBuilder.build();
 
-        TracingClientInterceptor tracingInterceptor = TracingClientInterceptor.newBuilder()
-                .withTracer(tracer)
-                .withStreaming()
-                .withVerbosity()
-                .withOperationName(new OperationNameConstructor() {
-                    @Override
-                    public <ReqT, RespT> String constructOperationName(MethodDescriptor<ReqT, RespT> method) {
-                        return "Grpc client to " + method.getFullMethodName();
-                    }
-                })
-                .withActiveSpanSource(() -> tracer.scopeManager().activeSpan())
-                .withTracedAttributes(TracingClientInterceptor.ClientRequestAttribute.ALL_CALL_OPTIONS, TracingClientInterceptor.ClientRequestAttribute.HEADERS)
-                .build();
+        if (catalogClient == null) {
+            String host = config.get("catalog-service").get("host").asString().orElseThrow(() ->
+                    new RuntimeException("missing configuration: catalog-service.host"));
+            int port = config.get("catalog-service").get("port").asInt().orElseThrow(() ->
+                    new RuntimeException("missing configuration: catalog-service.port"));
+            catalogClient = new CatalogWebClient(host, port);
+        }
 
-        CatalogServiceGrpc.CatalogServiceFutureStub catalogService = CatalogServiceGrpc.newFutureStub(tracingInterceptor.intercept(catalogChannel));
-        AuthServiceGrpc.AuthServiceFutureStub authService = AuthServiceGrpc.newFutureStub(tracingInterceptor.intercept(datasetAccessChannel));
+        if (userAccessClient == null) {
+            String host = config.get("auth-service").get("host").asString().orElseThrow(() ->
+                    new RuntimeException("missing configuration: auth-service.host"));
+            int port = config.get("auth-service").get("port").asInt().orElseThrow(() ->
+                    new RuntimeException("missing configuration: auth-service.port"));
+            userAccessClient = new UserAccessWebClient(host, port);
+        }
 
-        return new DataAccessApplication(config, tracer, authService, catalogService);
+        return new DataAccessApplication(config, tracer, userAccessClient, catalogClient);
     }
 }

@@ -7,17 +7,13 @@ webserver:
 data-access:
   provider: no.ssb.dapla.data.access.service.GoogleDataAccessService
 
-grpcserver:
-  host: 0.0.0.0
-  port: 10148
-
 catalog-service:
   host: localhost
-  port: 10118
+  port: 20110
 
 auth-service:
   host: localhost
-  port: 10108
+  port: 10100
 
 tracing:
   enabled: true
