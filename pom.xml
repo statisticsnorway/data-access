@@ -91,10 +91,6 @@
                     <artifactId>jsr305</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>io.opencensus</groupId>
-                    <artifactId>opencensus-api</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.checkerframework</groupId>
                     <artifactId>checker-compat-qual</artifactId>
                 </exclusion>
