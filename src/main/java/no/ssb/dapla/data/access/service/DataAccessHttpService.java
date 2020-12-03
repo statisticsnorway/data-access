@@ -268,7 +268,7 @@ public class DataAccessHttpService implements Service {
                                             .setParentUri(location.toString())
                                             .build();
 
-                                    ByteString allValidMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadata));
+                                    ByteString allValidMetadataJson = ByteString.copyFromUtf8(ProtobufJsonUtils.toString(allowedMetadataAll));
                                     ByteString allSignature = ByteString.copyFrom(metadataSigner.sign(allValidMetadataJson.toByteArray()));
 
                                     CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getWriteAccessToken(
@@ -291,7 +291,8 @@ public class DataAccessHttpService implements Service {
                                                             .setAccessToken(token.getAccessToken())
                                                             .setExpirationTime(token.getExpirationTime());
                                                 }
-                                                res.status(200).send(responseBuilder.build());
+                                                WriteLocationResponse responsePojo = responseBuilder.build();
+                                                res.status(200).send(responsePojo);
                                                 span.finish();
                                             })
                                             .exceptionally(throwable -> {

@@ -4,6 +4,7 @@ import io.helidon.common.reactive.Single;
 import io.helidon.webclient.WebClient;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -18,6 +19,7 @@ public class CatalogWebClient implements CatalogClient {
 
     public CatalogWebClient(URI baseUri) {
         this.webClient = WebClient.builder()
+                .addMediaSupport(ProtobufJsonSupport.create())
                 .baseUri(baseUri)
                 .build();
     }
@@ -25,6 +27,7 @@ public class CatalogWebClient implements CatalogClient {
     public CatalogWebClient(String host, int port) {
         try {
             this.webClient = WebClient.builder()
+                    .addMediaSupport(ProtobufJsonSupport.create())
                     .baseUri(new URI("http", null, host, port, null, null, null))
                     .build();
         } catch (URISyntaxException e) {
