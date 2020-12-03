@@ -40,7 +40,7 @@ public class CatalogWebClient implements CatalogClient {
         return webClient.post()
                 .path("/rpc/CatalogService/get")
                 .headers(headers -> {
-                    headers.put("Authorization", "Bearer: " + jwtToken);
+                    headers.put("Authorization", "Bearer " + jwtToken);
                     return headers;
                 })
                 .submit(request, GetDatasetResponse.class);

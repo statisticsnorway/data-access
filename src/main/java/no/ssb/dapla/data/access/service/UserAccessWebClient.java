@@ -41,7 +41,7 @@ public class UserAccessWebClient implements UserAccessClient {
                 .queryParam("state", state)
                 .skipUriEncoding()
                 .headers(headers -> {
-                    headers.put("Authorization", "Bearer: " + jwtToken);
+                    headers.put("Authorization", "Bearer " + jwtToken);
                     return headers;
                 })
                 .request()
