@@ -1,18 +1,21 @@
 package no.ssb.dapla.data.access.service;
 
 import io.helidon.config.Config;
+import io.helidon.metrics.RegistryFactory;
 import io.opentracing.Span;
 import no.ssb.dapla.data.access.oauth.GoogleCredentialsDetails;
 import no.ssb.dapla.data.access.oauth.GoogleCredentialsFactory;
 import no.ssb.dapla.dataset.api.DatasetState;
 import no.ssb.dapla.dataset.api.Valuation;
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
-import static java.util.Optional.*;
+import static java.util.Optional.ofNullable;
 
 public class GoogleDataAccessService extends AbstractDataAccessService {
 
@@ -20,8 +23,15 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
     private static final String WRITE_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
     private static final String READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
 
+    private final Counter gcsReadScopedAccessTokenCount;
+    private final Counter gcsWriteScopedAccessTokenCount;
+
     public GoogleDataAccessService(Config config) {
         super(config);
+        RegistryFactory metricsRegistry = RegistryFactory.getInstance();
+        MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
+        this.gcsReadScopedAccessTokenCount = appRegistry.counter("gcsReadScopedAccessTokenCount");
+        this.gcsWriteScopedAccessTokenCount = appRegistry.counter("gcsWriteScopedAccessTokenCount");
     }
 
     @Override
@@ -40,6 +50,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
                         parentUriString
                 );
                 future.complete(accessToken);
+                gcsReadScopedAccessTokenCount.inc();
             } else {
                 // No GCS scheme
                 future.complete(null);
@@ -66,6 +77,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
                         route.getUri().toString()
                 );
                 future.complete(accessToken);
+                gcsWriteScopedAccessTokenCount.inc();
             } else {
                 // No GCS scheme
                 future.complete(null);

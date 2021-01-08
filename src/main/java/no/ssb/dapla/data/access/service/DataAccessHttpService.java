@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.protobuf.ByteString;
+import io.helidon.metrics.RegistryFactory;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
@@ -26,6 +27,8 @@ import no.ssb.dapla.dataset.api.DatasetMeta;
 import no.ssb.dapla.dataset.api.DatasetMetaAll;
 import no.ssb.helidon.application.Tracing;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +51,15 @@ public class DataAccessHttpService implements Service {
     private final CatalogClient catalogClient;
 
     private final MetadataSigner metadataSigner;
+    private final Counter readRequestRequestCount;
+    private final Counter readRequestAllowedCount;
+    private final Counter readRequestDeniedCount;
+    private final Counter readRequestNotFoundCount;
+    private final Counter readRequestFailedCount;
+    private final Counter writeRequestRequestCount;
+    private final Counter writeRequestAllowedCount;
+    private final Counter writeRequestDeniedCount;
+    private final Counter writeRequestFailedCount;
 
     public DataAccessHttpService(DataAccessService dataAccessService, UserAccessClient userAccessClient,
                                  CatalogClient catalogClient, MetadataSigner metadataSigner) {
@@ -55,6 +67,17 @@ public class DataAccessHttpService implements Service {
         this.userAccessClient = userAccessClient;
         this.catalogClient = catalogClient;
         this.metadataSigner = metadataSigner;
+        RegistryFactory metricsRegistry = RegistryFactory.getInstance();
+        MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
+        this.readRequestRequestCount = appRegistry.counter("readRequestRequestCount");
+        this.readRequestAllowedCount = appRegistry.counter("readRequestAllowedCount");
+        this.readRequestDeniedCount = appRegistry.counter("readRequestDeniedCount");
+        this.readRequestNotFoundCount = appRegistry.counter("readRequestNotFoundCount");
+        this.readRequestFailedCount = appRegistry.counter("readRequestFailedCount");
+        this.writeRequestRequestCount = appRegistry.counter("writeRequestRequestCount");
+        this.writeRequestAllowedCount = appRegistry.counter("writeRequestAllowedCount");
+        this.writeRequestDeniedCount = appRegistry.counter("writeRequestDeniedCount");
+        this.writeRequestFailedCount = appRegistry.counter("writeRequestFailedCount");
     }
 
     @Override
@@ -64,6 +87,7 @@ public class DataAccessHttpService implements Service {
     }
 
     public void readLocation(ServerRequest req, ServerResponse res, ReadLocationRequest request) {
+        readRequestRequestCount.inc();
         Span span = Tracing.spanFromHttp(req, "readLocation");
         try {
             String bearerToken = req.headers().value("Authorization")
@@ -102,6 +126,7 @@ public class DataAccessHttpService implements Service {
                             if (!accessCheckResponse.getAllowed()) {
                                 try {
                                     res.status(200).send(responseBuilder.build()); // TODO 403
+                                    readRequestDeniedCount.inc();
                                 } finally {
                                     span.finish();
                                 }
@@ -124,6 +149,7 @@ public class DataAccessHttpService implements Service {
                                                     .setExpirationTime(token.getExpirationTime());
                                         }
                                         res.status(200).send(responseBuilder.build());
+                                        readRequestAllowedCount.inc();
                                         span.finish();
                                     })
                                     .exceptionally(throwable -> {
@@ -132,6 +158,7 @@ public class DataAccessHttpService implements Service {
                                             logError(span, throwable, "error in getReadAccessToken()");
                                             LOG.error(String.format("getReadAccessToken()"), throwable);
                                             res.status(500).send(throwable);
+                                            readRequestFailedCount.inc();
                                             return null;
                                         } finally {
                                             span.finish();
@@ -143,6 +170,7 @@ public class DataAccessHttpService implements Service {
                             logError(span, e, "unexpected error");
                             LOG.error("unexpected error", e);
                             res.status(500).send(e);
+                            readRequestFailedCount.inc();
                         }
                     }
             );
@@ -151,6 +179,7 @@ public class DataAccessHttpService implements Service {
             try {
                 logError(span, e, "top-level error");
                 LOG.error("top-level error", e);
+                readRequestFailedCount.inc();
                 throw e;
             } finally {
                 span.finish();
@@ -179,6 +208,7 @@ public class DataAccessHttpService implements Service {
                     .isBlank()) {
                 // no record of dataset in catalog
                 res.status(404).send();
+                readRequestNotFoundCount.inc();
                 return;
             }
 
@@ -202,6 +232,7 @@ public class DataAccessHttpService implements Service {
                             LOG.error("getAccessToken: error while performing authServiceFutureStub.hasAccess", throwable);
                             LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
                             res.status(500).send(throwable);
+                            readRequestFailedCount.inc();
                         } finally {
                             span.finish();
                         }
@@ -213,6 +244,7 @@ public class DataAccessHttpService implements Service {
                 logError(span, throwable, "error while performing catalog get");
                 LOG.error("readRequest: error while performing catalog get", throwable);
                 res.status(500).send(throwable);
+                readRequestFailedCount.inc();
             } finally {
                 span.finish();
             }
@@ -220,6 +252,7 @@ public class DataAccessHttpService implements Service {
     }
 
     public void writeLocation(ServerRequest req, ServerResponse res, WriteLocationRequest request) {
+        writeRequestRequestCount.inc();
         Span span = Tracing.spanFromHttp(req, "writeLocation");
         try {
             String bearerToken = req.headers().value("Authorization")
@@ -293,6 +326,7 @@ public class DataAccessHttpService implements Service {
                                                 }
                                                 WriteLocationResponse responsePojo = responseBuilder.build();
                                                 res.status(200).send(responsePojo);
+                                                writeRequestAllowedCount.inc();
                                                 span.finish();
                                             })
                                             .exceptionally(throwable -> {
@@ -301,6 +335,7 @@ public class DataAccessHttpService implements Service {
                                                     logError(span, throwable, "error in getWriteAccessToken()");
                                                     LOG.error(String.format("getWriteAccessToken()"), throwable);
                                                     res.status(500).send(throwable);
+                                                    writeRequestFailedCount.inc();
                                                     return null;
                                                 } finally {
                                                     span.finish();
@@ -314,6 +349,7 @@ public class DataAccessHttpService implements Service {
                                         logError(span, throwable, "error in getWriteLocation()");
                                         LOG.error(String.format("getWriteLocation()"), throwable);
                                         res.status(500).send(throwable);
+                                        writeRequestFailedCount.inc();
                                         return null;
                                     } finally {
                                         span.finish();
@@ -324,6 +360,7 @@ public class DataAccessHttpService implements Service {
                         res.status(200).send(WriteLocationResponse.newBuilder()
                                 .setAccessAllowed(false)
                                 .build());
+                        writeRequestDeniedCount.inc();
                         span.finish();
                     }
                 } catch (RuntimeException | Error e) {
@@ -363,6 +400,7 @@ public class DataAccessHttpService implements Service {
                         LOG.error("writeRequest: error while performing authServiceFutureStub.hasAccess", throwable);
                         LOG.info("Access check request: " + ProtobufJsonUtils.toString(accessCheckRequest));
                         res.status(500).send(throwable);
+                        writeRequestFailedCount.inc();
                     } finally {
                         span.finish();
                     }

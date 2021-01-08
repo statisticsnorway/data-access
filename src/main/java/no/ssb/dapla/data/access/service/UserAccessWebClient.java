@@ -1,7 +1,10 @@
 package no.ssb.dapla.data.access.service;
 
 import io.helidon.common.reactive.Single;
+import io.helidon.metrics.RegistryFactory;
 import io.helidon.webclient.WebClient;
+import org.eclipse.microprofile.metrics.Counter;
+import org.eclipse.microprofile.metrics.MetricRegistry;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -11,22 +14,34 @@ import java.nio.charset.StandardCharsets;
 public class UserAccessWebClient implements UserAccessClient {
 
     private final WebClient webClient;
+    private final Counter userAccessWebClientGetAccessCompleteCount;
+    private final Counter userAccessWebClientGetAccessErrorCount;
+    private final Counter userAccessWebClientGetAccessCancelCount;
 
     public UserAccessWebClient(WebClient webClient) {
         this.webClient = webClient;
+        RegistryFactory metricsRegistry = RegistryFactory.getInstance();
+        MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
+        this.userAccessWebClientGetAccessCompleteCount = appRegistry.counter("userAccessWebClientGetAccessCompleteCount");
+        this.userAccessWebClientGetAccessErrorCount = appRegistry.counter("userAccessWebClientGetAccessErrorCount");
+        this.userAccessWebClientGetAccessCancelCount = appRegistry.counter("userAccessWebClientGetAccessCancelCount");
     }
 
     public UserAccessWebClient(URI baseUri) {
-        this.webClient = WebClient.builder()
+        this(WebClient.builder()
                 .baseUri(baseUri)
-                .build();
+                .build());
     }
 
     public UserAccessWebClient(String host, int port) {
+        this(WebClient.builder()
+                .baseUri(toURI(host, port))
+                .build());
+    }
+
+    private static URI toURI(String host, int port) {
         try {
-            this.webClient = WebClient.builder()
-                    .baseUri(new URI("http", null, host, port, null, null, null))
-                    .build();
+            return new URI("http", null, host, port, null, null, null);
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
@@ -45,6 +60,9 @@ public class UserAccessWebClient implements UserAccessClient {
                     return headers;
                 })
                 .request()
+                .onComplete(userAccessWebClientGetAccessCompleteCount::inc)
+                .onCancel(userAccessWebClientGetAccessCancelCount::inc)
+                .onError(throwable -> userAccessWebClientGetAccessErrorCount.inc())
                 .map(wcr -> wcr.status().code() == 200);
     }
 }
