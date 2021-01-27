@@ -25,6 +25,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
 
     private final Counter gcsReadScopedAccessTokenCount;
     private final Counter gcsWriteScopedAccessTokenCount;
+    private final int tokenLifetime;
 
     public GoogleDataAccessService(Config config) {
         super(config);
@@ -32,6 +33,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
         MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
         this.gcsReadScopedAccessTokenCount = appRegistry.counter("gcsReadScopedAccessTokenCount");
         this.gcsWriteScopedAccessTokenCount = appRegistry.counter("gcsWriteScopedAccessTokenCount");
+        this.tokenLifetime = config.get("token.lifetime").asInt().orElse(0);
     }
 
     @Override
@@ -43,7 +45,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
             final URI parentUri = URI.create(parentUriString);
             if ("gs".equals(parentUri.getScheme())) {
                 GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
-                        getRoute(parentUri.getScheme(), ofNullable(parentUri.getAuthority()).orElse("")).getAuth().get("read"), READ_SCOPE);
+                        getRoute(parentUri.getScheme(), ofNullable(parentUri.getAuthority()).orElse("")).getAuth().get("read"), tokenLifetime, READ_SCOPE);
                 AccessToken accessToken = new AccessToken(
                         credential.getAccessToken(),
                         credential.getExpirationTime(),
@@ -70,7 +72,7 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
             LOG.info("Got route: " + route.getUri());
             if ("gs".equals(route.getUri().getScheme())) {
                 GoogleCredentialsDetails credential = GoogleCredentialsFactory.createCredentialsDetails(true,
-                        route.getAuth().get("write"), WRITE_SCOPE);
+                        route.getAuth().get("write"), tokenLifetime, WRITE_SCOPE);
                 AccessToken accessToken = new AccessToken(
                         credential.getAccessToken(),
                         credential.getExpirationTime(),

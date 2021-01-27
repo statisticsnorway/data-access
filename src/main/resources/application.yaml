@@ -52,3 +52,6 @@ metadatads:
 
 routing:
   file: /conf/routing.json
+
+token:
+  lifetime: 28800

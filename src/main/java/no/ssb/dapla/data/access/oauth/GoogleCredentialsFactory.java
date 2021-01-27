@@ -31,20 +31,26 @@ public class GoogleCredentialsFactory {
     private static final Logger LOG = LoggerFactory.getLogger(GoogleCredentialsFactory.class);
 
     public static GoogleCredentialsDetails createCredentialsDetails(boolean useComputeEngineFallback, String jsonPath,
-                                                                    String... scopes) {
+                                                                    int customLifetime, String... scopes) {
         try {
             GoogleCredentials credentials;
             String email;
             if (jsonPath != null) {
                 LOG.info("Using Service Account key file: " + jsonPath);
-                // Use the JSON private key if provided
-                credentials = ServiceAccountCredentials
-                        .fromStream(new FileInputStream(jsonPath))
-                        .createScoped(scopes);
+                if (customLifetime > 0) {
+                    credentials = ServiceAccountCredentials
+                            .fromStream(new FileInputStream(jsonPath))
+                            .createWithCustomLifetime(customLifetime)
+                            .createScoped(scopes);
+                } else {
+                    credentials = ServiceAccountCredentials
+                            .fromStream(new FileInputStream(jsonPath))
+                            .createScoped(scopes);
+                }
                 email = ((ServiceAccountCredentials) credentials).getAccount();
             } else if (useComputeEngineFallback) {
                 // Fall back to using the default Compute Engine service account
-                credentials = ComputeEngineCredentials.create();
+                credentials = ComputeEngineCredentials.create().createScoped(scopes);
                 email = ((ComputeEngineCredentials) credentials).getAccount();
             } else {
                 throw new RuntimeException("Could not find service account key file");
