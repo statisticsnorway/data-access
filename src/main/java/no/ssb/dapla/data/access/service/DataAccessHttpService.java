@@ -19,6 +19,7 @@ import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
+import no.ssb.dapla.data.access.protobuf.DeleteLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
@@ -84,6 +85,7 @@ public class DataAccessHttpService implements Service {
     public void update(Routing.Rules rules) {
         rules.post("/rpc/DataAccessService/readLocation", Handler.create(ReadLocationRequest.class, this::readLocation));
         rules.post("/rpc/DataAccessService/writeLocation", Handler.create(WriteLocationRequest.class, this::writeLocation));
+        rules.post("/rpc/DataAccessService/deleteLocation", Handler.create(DeleteLocationRequest.class, this::deleteLocation));
     }
 
     public void readLocation(ServerRequest req, ServerResponse res, ReadLocationRequest request) {
@@ -191,7 +193,7 @@ public class DataAccessHttpService implements Service {
     <R> void readRequest(ServerRequest req, ServerResponse res, final String path, String version, Span span, String bearerToken, String userId, BiConsumer<GetDatasetResponse, AccessCheckResponse> onUserAccessResponseConsumer) {
 
         // TODO Add fallback that reads metadata directly from bucket instead of catalog. That will allow this service
-        // TODO to continue functioning even when catalog is down. Will require guessing bucket based on routing-table.
+        //  to continue functioning even when catalog is down. Will require guessing bucket based on routing-table.
 
         GetDatasetRequest getDatasetRequest = GetDatasetRequest.newBuilder()
                 .setPath(path)
@@ -249,6 +251,10 @@ public class DataAccessHttpService implements Service {
                 span.finish();
             }
         });
+    }
+
+    public void deleteLocation(ServerRequest req, ServerResponse res, DeleteLocationRequest request) {
+
     }
 
     public void writeLocation(ServerRequest req, ServerResponse res, WriteLocationRequest request) {
@@ -316,6 +322,7 @@ public class DataAccessHttpService implements Service {
                                                         .setAccessAllowed(true)
                                                         .setValidMetadataJson(validMetadataJson)
                                                         .setMetadataSignature(signature)
+                                                        // parentUri contains the bucket from the routing table.
                                                         .setParentUri(allowedMetadataAll.getParentUri())
                                                         .setAllValidMetadataJson(allValidMetadataJson)
                                                         .setAllMetadataSignature(allSignature);
