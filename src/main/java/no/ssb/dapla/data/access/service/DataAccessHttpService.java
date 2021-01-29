@@ -46,6 +46,9 @@ import static no.ssb.helidon.application.Tracing.logError;
 public class DataAccessHttpService implements Service {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataAccessHttpService.class);
+    private static final String FALLBACK_TOKEN = JWT.create()
+            .withClaim("preferred_username", "unknown")
+            .sign(Algorithm.HMAC256("s3cr3t"));
 
     private final DataAccessService dataAccessService;
     private final UserAccessClient userAccessClient;
@@ -81,6 +84,20 @@ public class DataAccessHttpService implements Service {
         this.writeRequestFailedCount = appRegistry.counter("writeRequestFailedCount");
     }
 
+    static DecodedJWT extractJWT(ServerRequest req) {
+        return req.headers().value("Authorization")
+                .filter(h -> h.contains("Bearer "))
+                .map(h -> h.substring("Bearer ".length()))
+                .map(JWT::decode)
+                .orElseGet(() -> JWT.decode(FALLBACK_TOKEN));
+
+    }
+
+    static String extractUserId(DecodedJWT token) {
+        // TODO use subject instead of preferred_username
+        String userId = token.getClaim("preferred_username").asString();
+    }
+
     @Override
     public void update(Routing.Rules rules) {
         rules.post("/rpc/DataAccessService/readLocation", Handler.create(ReadLocationRequest.class, this::readLocation));
@@ -92,19 +109,11 @@ public class DataAccessHttpService implements Service {
         readRequestRequestCount.inc();
         Span span = Tracing.spanFromHttp(req, "readLocation");
         try {
-            String bearerToken = req.headers().value("Authorization")
-                    .filter(h -> h.contains("Bearer "))
-                    .map(h -> h.substring("Bearer ".length()))
-                    .orElse(null);
-            DecodedJWT decodedJWT = ofNullable(bearerToken)
-                    .map(JWT::decode)
-                    .orElseGet(() -> JWT.decode(JWT.create()
-                            .withClaim("preferred_username", "unknown")
-                            .sign(Algorithm.HMAC256("s3cr3t"))));
-            String userId = decodedJWT.getClaim("preferred_username").asString();
-            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
-            readRequest(req, res, request.getPath(), String.valueOf(request.getSnapshot()), span, bearerToken, userId,
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
+
+            readRequest(req, res, request.getPath(), String.valueOf(request.getSnapshot()), span, JWT.getToken(), userId,
                     (getDatasetResponse, accessCheckResponse) -> {
                         try {
                             Tracing.restoreTracingContext(req.tracer(), span);
@@ -254,28 +263,22 @@ public class DataAccessHttpService implements Service {
     }
 
     public void deleteLocation(ServerRequest req, ServerResponse res, DeleteLocationRequest request) {
-
+        DecodedJWT JWT = extractJWT(req);
+        String userId = extractUserId(JWT);
+        throw new UnsupportedOperationException("TODO");
     }
 
     public void writeLocation(ServerRequest req, ServerResponse res, WriteLocationRequest request) {
         writeRequestRequestCount.inc();
         Span span = Tracing.spanFromHttp(req, "writeLocation");
         try {
-            String bearerToken = req.headers().value("Authorization")
-                    .filter(h -> h.contains("Bearer "))
-                    .map(h -> h.substring("Bearer ".length()))
-                    .orElse(null);
-            DecodedJWT decodedJWT = ofNullable(bearerToken)
-                    .map(JWT::decode)
-                    .orElseGet(() -> JWT.decode(JWT.create()
-                            .withClaim("preferred_username", "unknown")
-                            .sign(Algorithm.HMAC256("s3cr3t"))));
-            String userId = decodedJWT.getClaim("preferred_username").asString();
-            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
+
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
 
             DatasetMeta untrustedMetadata = ProtobufJsonUtils.toPojo(request.getMetadataJson(), DatasetMeta.class);
 
-            writeRequest(req, res, untrustedMetadata, span, bearerToken, userId, accessCheckResponse -> {
+            writeRequest(req, res, untrustedMetadata, span, JWT.getToken(), userId, accessCheckResponse -> {
                 try {
                     Tracing.restoreTracingContext(req.tracer(), span);
                     if (accessCheckResponse.getAllowed()) {
