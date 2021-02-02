@@ -2,6 +2,8 @@ package no.ssb.dapla.data.access.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import no.ssb.dapla.data.access.protobuf.DeleteLocationRequest;
+import no.ssb.dapla.data.access.protobuf.DeleteLocationResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
@@ -45,6 +47,39 @@ class DataAccessServiceHttpTest {
         assertThat(response.getParentUri()).isEqualTo("gs://dev-datalager-store");
         assertThat(response.getVersion()).isEqualTo("1");
         assertThat(response.getAccessToken()).isEqualTo("dev-read.json-read-token");
+        assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+    }
+
+    @Test
+    public void thatDeleteLocationWorks() {
+
+        // Test with two versions.
+
+        // /raw/skatt/dataset : version 1 -> RAW
+        // /data/datastore/not-so-sensitive-rawdata
+
+        // /raw/skatt/dataset : version 2 -> SENSITIVE
+        // /data/datastore/sensitive-rawdata
+
+        DeleteLocationResponse responseVersion1 = testClient
+                .postAsJson("/rpc/DataAccessService/deleteLocation", DeleteLocationRequest.newBuilder()
+                                .setPath("/raw/skatt/datasetDeleteTest")
+                                .setSnapshot(1)
+                                .build(),
+                        DeleteLocationResponse.class, headers).body();
+        assertThat(responseVersion1.getParentUri()).isEqualTo("file:///data/datastore/not-so-sensitive-rawdata");
+        assertThat(responseVersion1.getAccessToken()).isEqualTo("null-write-token");
+        assertThat(responseVersion1.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
+
+        DeleteLocationResponse response = testClient
+                .postAsJson("/rpc/DataAccessService/deleteLocation", DeleteLocationRequest.newBuilder()
+                                .setPath("/raw/skatt/datasetDeleteTest")
+                                .setSnapshot(10)
+                                .build(),
+                        DeleteLocationResponse.class, headers).body();
+        assertNotNull(response);
+        assertThat(response.getParentUri()).isEqualTo("file:///data/datastore/sensitive-rawdata");
+        assertThat(response.getAccessToken()).isEqualTo("null-write-token");
         assertThat(response.getExpirationTime()).isGreaterThan(System.currentTimeMillis());
     }
 

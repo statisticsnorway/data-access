@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.protobuf.ByteString;
+import io.helidon.common.reactive.Single;
 import io.helidon.metrics.RegistryFactory;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
@@ -20,6 +21,7 @@ import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.protobuf.DeleteLocationRequest;
+import no.ssb.dapla.data.access.protobuf.DeleteLocationResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
@@ -95,7 +97,7 @@ public class DataAccessHttpService implements Service {
 
     static String extractUserId(DecodedJWT token) {
         // TODO use subject instead of preferred_username
-        String userId = token.getClaim("preferred_username").asString();
+        return token.getClaim("preferred_username").asString();
     }
 
     @Override
@@ -262,10 +264,60 @@ public class DataAccessHttpService implements Service {
         });
     }
 
-    public void deleteLocation(ServerRequest req, ServerResponse res, DeleteLocationRequest request) {
-        DecodedJWT JWT = extractJWT(req);
-        String userId = extractUserId(JWT);
-        throw new UnsupportedOperationException("TODO");
+    /**
+     * Handler for the deleteLocation http endpoint.
+     * <p>
+     * Calling this endpoint <strong>does not</strong> delete anything. It simply returns
+     * the token, the routed URI (parentUri) and whether the user has write (thus delete)
+     * access to a particular dataset version.
+     */
+    public void deleteLocation(ServerRequest req, ServerResponse res, DeleteLocationRequest deleteLocationRequest) {
+        // TODO: Not really sure how to cleanly handle spans with reactive APIs..
+        Span span = Tracing.spanFromHttp(req, "deleteLocation");
+        try {
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
+            String path = deleteLocationRequest.getPath();
+            Long version = deleteLocationRequest.getSnapshot();
+
+            catalogClient.get(path, version, JWT.getToken())
+                    .map(GetDatasetResponse::getDataset)
+                    .flatMapSingle(dataset ->
+                        userAccessClient.hasAccess(
+                                userId,
+                                Privilege.DELETE.name(),
+                                path,
+                                dataset.getValuation().name(),
+                                dataset.getState().name(),
+                                JWT.getToken()
+                        ).flatMapSingle(accessGranted -> {
+                            if (!accessGranted) {
+                                return Single.error(new Exception("user does not have access"));
+                            } else {
+                                return Single.just(dataset);
+                            }
+                        })
+                    ).flatMapSingle(dataset ->
+                        dataAccessService.getWriteAccessToken(span, extractUserId(JWT),
+                                dataset.getId().getPath(),
+                                dataset.getValuation().name(),
+                                dataset.getState().name())
+                    ).map(accessToken ->
+                        DeleteLocationResponse.newBuilder()
+                                // Seems like no access is an error?
+                                .setAccessAllowed(true)
+                                .setAccessToken(accessToken.getAccessToken())
+                                .setExpirationTime(accessToken.getExpirationTime())
+                                .setParentUri(accessToken.getParentUri())
+                                .build()
+                    ).thenAccept(deleteLocationResponse ->
+                        res.status(200).send(deleteLocationResponse)
+                    ).exceptionallyAccept(throwable ->
+                        res.status(500).send(throwable)
+                    ).thenRunAsync(() -> span.finish());
+        } finally {
+            span.finish();
+        }
     }
 
     public void writeLocation(ServerRequest req, ServerResponse res, WriteLocationRequest request) {
