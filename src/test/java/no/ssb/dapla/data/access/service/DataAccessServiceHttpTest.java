@@ -2,6 +2,7 @@ package no.ssb.dapla.data.access.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.data.access.protobuf.DeleteLocationRequest;
 import no.ssb.dapla.data.access.protobuf.DeleteLocationResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
@@ -54,6 +55,12 @@ class DataAccessServiceHttpTest {
     public void thatDeleteLocationWorks() {
 
         // Test with two versions.
+
+        // Used by DataAccessServiceHttpTest#thatDeleteLocationWorks()
+        DataAccessMockRegistry.addDataset("/raw/skatt/datasetDeleteTest", 1L,
+                Dataset.DatasetState.RAW, Dataset.Valuation.INTERNAL, "some fake place");
+        DataAccessMockRegistry.addDataset("/raw/skatt/datasetDeleteTest", 2L,
+                Dataset.DatasetState.RAW, Dataset.Valuation.SENSITIVE, "some fake place");
 
         // /raw/skatt/dataset : version 1 -> RAW
         // /data/datastore/not-so-sensitive-rawdata

@@ -34,12 +34,6 @@ public class DataAccessMockRegistry extends MockRegistry {
                                 .setTimestamp(1)
                 )
                 .build());
-
-        // Used by DataAccessServiceHttpTest#thatDeleteLocationWorks()
-        addDataset("/raw/skatt/datasetDeleteTest", 1L,
-                Dataset.DatasetState.RAW, Valuation.INTERNAL, "some fake place");
-        addDataset("/raw/skatt/datasetDeleteTest", 2L,
-                Dataset.DatasetState.RAW, Valuation.SENSITIVE, "some fake place");
     }
 
     public DataAccessMockRegistry() {
@@ -55,7 +49,7 @@ public class DataAccessMockRegistry extends MockRegistry {
                 .orElse(GetDatasetResponse.newBuilder().build()));
     }
 
-    static void addDataset(String path, Long version, Dataset.DatasetState state, Valuation valuation, String parentURI) {
+    public static void addDataset(String path, Long version, Dataset.DatasetState state, Valuation valuation, String parentURI) {
         addDataset(newBuilder()
                 .setState(state)
                 .setValuation(valuation)
@@ -68,7 +62,7 @@ public class DataAccessMockRegistry extends MockRegistry {
                 .build());
     }
 
-    static void addDataset(Dataset dataset) {
+    public static void addDataset(Dataset dataset) {
         String path = dataset.getId().getPath();
         Long timestamp = dataset.getId().getTimestamp();
         CATALOG.computeIfAbsent(path, s -> new TreeMap<>()).put(timestamp, dataset);
