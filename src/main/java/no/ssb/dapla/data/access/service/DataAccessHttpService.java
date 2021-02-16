@@ -291,25 +291,23 @@ public class DataAccessHttpService implements Service {
                                 dataset.getState().name(),
                                 JWT.getToken()
                         ).flatMapSingle(accessGranted -> {
-                            if (!accessGranted) {
-                                return Single.error(new Exception("user does not have access"));
+                            if (accessGranted) {
+                                return dataAccessService.getWriteAccessToken(span, extractUserId(JWT),
+                                        dataset.getId().getPath(),
+                                        dataset.getValuation().name(),
+                                        dataset.getState().name())
+                                        .map(accessToken -> DeleteLocationResponse.newBuilder()
+                                                .setAccessAllowed(true)
+                                                .setAccessToken(accessToken.getAccessToken())
+                                                .setExpirationTime(accessToken.getExpirationTime())
+                                                .setParentUri(accessToken.getParentUri())
+                                                .build());
                             } else {
-                                return Single.just(dataset);
+                                return Single.just(DeleteLocationResponse.newBuilder()
+                                        .setAccessAllowed(false)
+                                );
                             }
                         })
-                    ).flatMapSingle(dataset ->
-                        dataAccessService.getWriteAccessToken(span, extractUserId(JWT),
-                                dataset.getId().getPath(),
-                                dataset.getValuation().name(),
-                                dataset.getState().name())
-                    ).map(accessToken ->
-                        DeleteLocationResponse.newBuilder()
-                                // Seems like no access is an error?
-                                .setAccessAllowed(true)
-                                .setAccessToken(accessToken.getAccessToken())
-                                .setExpirationTime(accessToken.getExpirationTime())
-                                .setParentUri(accessToken.getParentUri())
-                                .build()
                     ).thenAccept(deleteLocationResponse ->
                         res.status(200).send(deleteLocationResponse)
                     ).exceptionallyAccept(throwable ->
