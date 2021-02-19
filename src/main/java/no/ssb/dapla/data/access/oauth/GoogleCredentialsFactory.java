@@ -38,6 +38,7 @@ public class GoogleCredentialsFactory {
             if (jsonPath != null) {
                 LOG.info("Using Service Account key file: " + jsonPath);
                 if (customLifetime > 0) {
+                    LOG.info("Setting custom lifetime: " + customLifetime);
                     credentials = ServiceAccountCredentials
                             .fromStream(new FileInputStream(jsonPath))
                             .createWithCustomLifetime(customLifetime)
