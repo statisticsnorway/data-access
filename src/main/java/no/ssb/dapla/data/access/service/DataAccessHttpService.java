@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.protobuf.ByteString;
+import io.helidon.common.reactive.Single;
 import io.helidon.metrics.RegistryFactory;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
@@ -19,6 +20,8 @@ import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
+import no.ssb.dapla.data.access.protobuf.DeleteLocationRequest;
+import no.ssb.dapla.data.access.protobuf.DeleteLocationResponse;
 import no.ssb.dapla.data.access.protobuf.ReadLocationRequest;
 import no.ssb.dapla.data.access.protobuf.ReadLocationResponse;
 import no.ssb.dapla.data.access.protobuf.WriteLocationRequest;
@@ -45,6 +48,9 @@ import static no.ssb.helidon.application.Tracing.logError;
 public class DataAccessHttpService implements Service {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataAccessHttpService.class);
+    private static final String FALLBACK_TOKEN = JWT.create()
+            .withClaim("preferred_username", "unknown")
+            .sign(Algorithm.HMAC256("s3cr3t"));
 
     private final DataAccessService dataAccessService;
     private final UserAccessClient userAccessClient;
@@ -80,29 +86,36 @@ public class DataAccessHttpService implements Service {
         this.writeRequestFailedCount = appRegistry.counter("writeRequestFailedCount");
     }
 
+    static DecodedJWT extractJWT(ServerRequest req) {
+        return req.headers().value("Authorization")
+                .filter(h -> h.contains("Bearer "))
+                .map(h -> h.substring("Bearer ".length()))
+                .map(JWT::decode)
+                .orElseGet(() -> JWT.decode(FALLBACK_TOKEN));
+
+    }
+
+    static String extractUserId(DecodedJWT token) {
+        // TODO use subject instead of preferred_username
+        return token.getClaim("preferred_username").asString();
+    }
+
     @Override
     public void update(Routing.Rules rules) {
         rules.post("/rpc/DataAccessService/readLocation", Handler.create(ReadLocationRequest.class, this::readLocation));
         rules.post("/rpc/DataAccessService/writeLocation", Handler.create(WriteLocationRequest.class, this::writeLocation));
+        rules.post("/rpc/DataAccessService/deleteLocation", Handler.create(DeleteLocationRequest.class, this::deleteLocation));
     }
 
     public void readLocation(ServerRequest req, ServerResponse res, ReadLocationRequest request) {
         readRequestRequestCount.inc();
         Span span = Tracing.spanFromHttp(req, "readLocation");
         try {
-            String bearerToken = req.headers().value("Authorization")
-                    .filter(h -> h.contains("Bearer "))
-                    .map(h -> h.substring("Bearer ".length()))
-                    .orElse(null);
-            DecodedJWT decodedJWT = ofNullable(bearerToken)
-                    .map(JWT::decode)
-                    .orElseGet(() -> JWT.decode(JWT.create()
-                            .withClaim("preferred_username", "unknown")
-                            .sign(Algorithm.HMAC256("s3cr3t"))));
-            String userId = decodedJWT.getClaim("preferred_username").asString();
-            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
 
-            readRequest(req, res, request.getPath(), String.valueOf(request.getSnapshot()), span, bearerToken, userId,
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
+
+            readRequest(req, res, request.getPath(), String.valueOf(request.getSnapshot()), span, JWT.getToken(), userId,
                     (getDatasetResponse, accessCheckResponse) -> {
                         try {
                             Tracing.restoreTracingContext(req.tracer(), span);
@@ -191,7 +204,7 @@ public class DataAccessHttpService implements Service {
     <R> void readRequest(ServerRequest req, ServerResponse res, final String path, String version, Span span, String bearerToken, String userId, BiConsumer<GetDatasetResponse, AccessCheckResponse> onUserAccessResponseConsumer) {
 
         // TODO Add fallback that reads metadata directly from bucket instead of catalog. That will allow this service
-        // TODO to continue functioning even when catalog is down. Will require guessing bucket based on routing-table.
+        //  to continue functioning even when catalog is down. Will require guessing bucket based on routing-table.
 
         GetDatasetRequest getDatasetRequest = GetDatasetRequest.newBuilder()
                 .setPath(path)
@@ -251,25 +264,71 @@ public class DataAccessHttpService implements Service {
         });
     }
 
+    /**
+     * Handler for the deleteLocation http endpoint.
+     * <p>
+     * Calling this endpoint <strong>does not</strong> delete anything. It simply returns
+     * the token, the routed URI (parentUri) and whether the user has write (thus delete)
+     * access to a particular dataset version.
+     */
+    public void deleteLocation(ServerRequest req, ServerResponse res, DeleteLocationRequest deleteLocationRequest) {
+        // TODO: Not really sure how to cleanly handle spans with reactive APIs..
+        Span span = Tracing.spanFromHttp(req, "deleteLocation");
+        try {
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
+            String path = deleteLocationRequest.getPath();
+            Long version = deleteLocationRequest.getSnapshot();
+
+            catalogClient.get(path, version, JWT.getToken())
+                    .map(GetDatasetResponse::getDataset)
+                    .flatMapSingle(dataset ->
+                        userAccessClient.hasAccess(
+                                userId,
+                                Privilege.DELETE.name(),
+                                path,
+                                dataset.getValuation().name(),
+                                dataset.getState().name(),
+                                JWT.getToken()
+                        ).flatMapSingle(accessGranted -> {
+                            if (accessGranted) {
+                                return dataAccessService.getWriteAccessToken(span, extractUserId(JWT),
+                                        dataset.getId().getPath(),
+                                        dataset.getValuation().name(),
+                                        dataset.getState().name())
+                                        .map(accessToken -> DeleteLocationResponse.newBuilder()
+                                                .setAccessAllowed(true)
+                                                .setAccessToken(accessToken.getAccessToken())
+                                                .setExpirationTime(accessToken.getExpirationTime())
+                                                .setParentUri(accessToken.getParentUri())
+                                                .build());
+                            } else {
+                                return Single.just(DeleteLocationResponse.newBuilder()
+                                        .setAccessAllowed(false)
+                                );
+                            }
+                        })
+                    ).thenAccept(deleteLocationResponse ->
+                        res.status(200).send(deleteLocationResponse)
+                    ).exceptionallyAccept(throwable ->
+                        res.status(500).send(throwable)
+                    ).thenRunAsync(() -> span.finish());
+        } finally {
+            span.finish();
+        }
+    }
+
     public void writeLocation(ServerRequest req, ServerResponse res, WriteLocationRequest request) {
         writeRequestRequestCount.inc();
         Span span = Tracing.spanFromHttp(req, "writeLocation");
         try {
-            String bearerToken = req.headers().value("Authorization")
-                    .filter(h -> h.contains("Bearer "))
-                    .map(h -> h.substring("Bearer ".length()))
-                    .orElse(null);
-            DecodedJWT decodedJWT = ofNullable(bearerToken)
-                    .map(JWT::decode)
-                    .orElseGet(() -> JWT.decode(JWT.create()
-                            .withClaim("preferred_username", "unknown")
-                            .sign(Algorithm.HMAC256("s3cr3t"))));
-            String userId = decodedJWT.getClaim("preferred_username").asString();
-            //String userId = decodedJWT.getSubject(); // TODO use subject instead of preferred_username
+
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
 
             DatasetMeta untrustedMetadata = ProtobufJsonUtils.toPojo(request.getMetadataJson(), DatasetMeta.class);
 
-            writeRequest(req, res, untrustedMetadata, span, bearerToken, userId, accessCheckResponse -> {
+            writeRequest(req, res, untrustedMetadata, span, JWT.getToken(), userId, accessCheckResponse -> {
                 try {
                     Tracing.restoreTracingContext(req.tracer(), span);
                     if (accessCheckResponse.getAllowed()) {
@@ -316,6 +375,7 @@ public class DataAccessHttpService implements Service {
                                                         .setAccessAllowed(true)
                                                         .setValidMetadataJson(validMetadataJson)
                                                         .setMetadataSignature(signature)
+                                                        // parentUri contains the bucket from the routing table.
                                                         .setParentUri(allowedMetadataAll.getParentUri())
                                                         .setAllValidMetadataJson(allValidMetadataJson)
                                                         .setAllMetadataSignature(allSignature);
