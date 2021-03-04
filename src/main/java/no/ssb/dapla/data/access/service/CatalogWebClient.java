@@ -5,6 +5,8 @@ import io.helidon.metrics.RegistryFactory;
 import io.helidon.webclient.WebClient;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetTableRequest;
+import no.ssb.dapla.catalog.protobuf.GetTableResponse;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.eclipse.microprofile.metrics.Counter;
 import org.eclipse.microprofile.metrics.MetricRegistry;
@@ -63,5 +65,16 @@ public class CatalogWebClient implements CatalogClient {
                 .onComplete(catalogWebClientGetAccessCompleteCount::inc)
                 .onCancel(catalogWebClientGetAccessCancelCount::inc)
                 .onError(throwable -> catalogWebClientGetAccessErrorCount.inc());
+    }
+
+    @Override
+    public Single<GetTableResponse> get(GetTableRequest request, String jwtToken) {
+        return webClient.post()
+                .path("/catalog2/get")
+                .headers(headers -> {
+                    headers.put("Authorization", "Bearer " + jwtToken);
+                    return headers;
+                })
+                .submit(request, GetTableResponse.class);
     }
 }
