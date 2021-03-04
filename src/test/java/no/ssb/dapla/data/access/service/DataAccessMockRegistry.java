@@ -5,6 +5,8 @@ import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetTableRequest;
+import no.ssb.dapla.catalog.protobuf.GetTableResponse;
 import no.ssb.testing.helidon.MockRegistry;
 
 import java.util.HashMap;
@@ -37,16 +39,26 @@ public class DataAccessMockRegistry extends MockRegistry {
     }
 
     public DataAccessMockRegistry() {
-        add((CatalogClient) DataAccessMockRegistry::getDataset);
+        add(new DataAccessMockRegistry.MockCatalogClient());
         add((UserAccessClient) (userId, privilege, path, valuation, state, jwtToken) -> Single.just(ACCESS.contains(userId)));
     }
 
-    static Single<GetDatasetResponse> getDataset(GetDatasetRequest request, String jwtToken) {
-        return Single.just(ofNullable(CATALOG.get(request.getPath()))
-                .map(versions -> versions.headMap(request.getTimestamp() + 1))
-                .flatMap(subVersions -> ofNullable(subVersions.get(subVersions.lastKey())))
-                .map(dataset -> GetDatasetResponse.newBuilder().setDataset(dataset).build())
-                .orElse(GetDatasetResponse.newBuilder().build()));
+    static class MockCatalogClient implements CatalogClient {
+
+        @Override
+        public Single<GetDatasetResponse> get(GetDatasetRequest request, String jwtToken) {
+            return Single.just(ofNullable(CATALOG.get(request.getPath()))
+                    .map(versions -> versions.headMap(request.getTimestamp() + 1))
+                    .flatMap(subVersions -> ofNullable(subVersions.get(subVersions.lastKey())))
+                    .map(dataset -> GetDatasetResponse.newBuilder().setDataset(dataset).build())
+                    .orElse(GetDatasetResponse.newBuilder().build()));
+        }
+
+        @Override
+        public Single<GetTableResponse> get(GetTableRequest request, String jwtToken) {
+            return null;
+        }
+
     }
 
     public static void addDataset(String path, Long version, Dataset.DatasetState state, Valuation valuation, String parentURI) {

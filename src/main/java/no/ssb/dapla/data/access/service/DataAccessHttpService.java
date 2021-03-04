@@ -19,6 +19,7 @@ import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.DatasetId;
 import no.ssb.dapla.catalog.protobuf.GetDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.GetTableRequest;
 import no.ssb.dapla.data.access.metadata.MetadataSigner;
 import no.ssb.dapla.data.access.protobuf.DeleteLocationRequest;
 import no.ssb.dapla.data.access.protobuf.DeleteLocationResponse;
@@ -102,9 +103,80 @@ public class DataAccessHttpService implements Service {
 
     @Override
     public void update(Routing.Rules rules) {
+        rules.post("/rpc/DataAccessService/readLocation2", Handler.create(ReadLocationRequest.class, this::readLocationUnsecure));
         rules.post("/rpc/DataAccessService/readLocation", Handler.create(ReadLocationRequest.class, this::readLocation));
         rules.post("/rpc/DataAccessService/writeLocation", Handler.create(WriteLocationRequest.class, this::writeLocation));
         rules.post("/rpc/DataAccessService/deleteLocation", Handler.create(DeleteLocationRequest.class, this::deleteLocation));
+    }
+
+    //TODO: Apply security checks
+    public void readLocationUnsecure(ServerRequest req, ServerResponse res, ReadLocationRequest request) {
+        Span span = Tracing.spanFromHttp(req, "readLocationUnsecure");
+        try {
+            DecodedJWT JWT = extractJWT(req);
+            String userId = extractUserId(JWT);
+
+            final GetTableRequest getTableRequest = GetTableRequest.newBuilder().setPath(request.getPath()).build();
+            catalogClient.get(getTableRequest, JWT.getToken()).subscribe(getTableResponse -> {
+
+                // TODO: Figure out access rules (without valuation and state?)
+                ReadLocationResponse.Builder responseBuilder = ReadLocationResponse.newBuilder().setAccessAllowed(true);
+
+                String parentUri = getTableResponse.getTable().getMetadataLocation();
+                CompletableFuture<AccessToken> accessTokenFuture = dataAccessService.getReadAccessToken(
+                        span, userId, parentUri);
+
+                accessTokenFuture
+                        .orTimeout(10, TimeUnit.SECONDS)
+                        .thenAccept(token -> {
+                            Tracing.restoreTracingContext(req.tracer(), span);
+                            responseBuilder
+                                    .setParentUri(parentUri)
+                                    .setVersion("0");
+                            if (token != null) {
+                                responseBuilder
+                                        .setAccessToken(token.getAccessToken())
+                                        .setExpirationTime(token.getExpirationTime());
+                            }
+                            res.status(200).send(responseBuilder.build());
+                            readRequestAllowedCount.inc();
+                            span.finish();
+                        })
+                        .exceptionally(throwable -> {
+                            try {
+                                Tracing.restoreTracingContext(req.tracer(), span);
+                                logError(span, throwable, "error in getReadAccessToken()");
+                                LOG.error(String.format("getReadAccessToken()"), throwable);
+                                res.status(500).send(throwable);
+                                readRequestFailedCount.inc();
+                                return null;
+                            } finally {
+                                span.finish();
+                            }
+                        });
+
+            }, throwable -> {
+                try {
+                    Tracing.restoreTracingContext(req.tracer(), span);
+                    logError(span, throwable, "error while performing catalog get");
+                    LOG.error("readRequest: error while performing catalog get", throwable);
+                    res.status(500).send(throwable);
+                    readRequestFailedCount.inc();
+                } finally {
+                    span.finish();
+                }
+            });
+
+        } catch (RuntimeException | Error e) {
+            try {
+                logError(span, e, "top-level error");
+                LOG.error("top-level error", e);
+                readRequestFailedCount.inc();
+                throw e;
+            } finally {
+                span.finish();
+            }
+        }
     }
 
     public void readLocation(ServerRequest req, ServerResponse res, ReadLocationRequest request) {
