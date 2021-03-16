@@ -2,6 +2,7 @@ package no.ssb.dapla.data.access;
 
 import io.helidon.config.Config;
 import io.helidon.config.ConfigSources;
+import io.helidon.config.ConfigValue;
 import io.helidon.metrics.MetricsSupport;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.WebServer;
@@ -57,10 +58,11 @@ public class DataAccessApplication extends DefaultHelidonApplication {
             final String className = config.get("data-access.provider").asString().get();
             try {
                 dataAccessService = (DataAccessService) Class.forName(className)
-                        .getDeclaredConstructor(Config.class)
-                        .newInstance(loadConfig(config.get("routing.file").asString().get()));
+                        .getDeclaredConstructor(Config.class, ConfigValue.class)
+                        .newInstance(loadConfig(config.get("routing.file").asString().get()),
+                                config.get("token.lifetime").asInt());
             } catch (ReflectiveOperationException e) {
-                throw new RuntimeException("Could not instantiate " + className);
+                throw new RuntimeException("Could not instantiate " + className, e);
             }
         } else {
             dataAccessService = new GoogleDataAccessService(loadConfig(config.get("routing.file").asString().get()),
