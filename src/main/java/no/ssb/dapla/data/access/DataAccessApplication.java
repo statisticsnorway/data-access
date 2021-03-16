@@ -63,7 +63,8 @@ public class DataAccessApplication extends DefaultHelidonApplication {
                 throw new RuntimeException("Could not instantiate " + className);
             }
         } else {
-            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("routing.file").asString().get()));
+            dataAccessService = new GoogleDataAccessService(loadConfig(config.get("routing.file").asString().get()),
+                    config.get("token.lifetime").asInt());
         }
 
         Config signerConfig = config.get("metadatads");

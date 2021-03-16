@@ -1,6 +1,7 @@
 package no.ssb.dapla.data.access.service;
 
 import io.helidon.config.Config;
+import io.helidon.config.ConfigValue;
 import io.helidon.metrics.RegistryFactory;
 import io.opentracing.Span;
 import no.ssb.dapla.data.access.oauth.GoogleCredentialsDetails;
@@ -27,13 +28,13 @@ public class GoogleDataAccessService extends AbstractDataAccessService {
     private final Counter gcsWriteScopedAccessTokenCount;
     private final int tokenLifetime;
 
-    public GoogleDataAccessService(Config config) {
+    public GoogleDataAccessService(Config config, ConfigValue<Integer> tokenLifetime) {
         super(config);
         RegistryFactory metricsRegistry = RegistryFactory.getInstance();
         MetricRegistry appRegistry = metricsRegistry.getRegistry(MetricRegistry.Type.APPLICATION);
         this.gcsReadScopedAccessTokenCount = appRegistry.counter("gcsReadScopedAccessTokenCount");
         this.gcsWriteScopedAccessTokenCount = appRegistry.counter("gcsWriteScopedAccessTokenCount");
-        this.tokenLifetime = config.get("token.lifetime").asInt().orElse(0);
+        this.tokenLifetime = tokenLifetime.orElse(0);
     }
 
     @Override
