@@ -54,4 +54,4 @@ routing:
   file: /conf/routing.json
 
 token:
-  lifetime: 28800
+  lifetime: 3600
